@@ -64,6 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const qrcodeDisplay = document.getElementById('qrcodeDisplay');
   const badgeWorkerIdText = document.getElementById('badgeWorkerIdText');
   const badgeShiftDateText = document.getElementById('badgeShiftDateText');
+  const modalWorkerIdInput = document.getElementById('modalWorkerIdInput');
 
   // Readout Cards
   const readoutWhite = document.getElementById('readoutWhite');
@@ -97,9 +98,9 @@ document.addEventListener('DOMContentLoaded', () => {
   let activeMediaStream = null;
   let qrScanAnimationFrame = null;
 
-  // Initialize Form Defaults (No random worker IDs)
+  // Initialize Form Defaults
   shiftDateInput.value = state.shiftDate;
-  workerIdInput.value = ''; // Blank for manual input
+  workerIdInput.value = '';
 
   // ==========================================
   // 2. Navigation & Screen Switching
@@ -268,15 +269,19 @@ document.addEventListener('DOMContentLoaded', () => {
   // 4. MANUAL WORKER REGISTRATION & PNG DOWNLOAD
   // ==========================================
   function generateAndRegisterWorkerQr() {
-    const workerId = workerIdInput.value.trim();
+    let workerId = workerIdInput.value.trim();
     if (!workerId) {
-      alert('Please enter a Worker ID to register (e.g. EMP-101).');
-      workerIdInput.focus();
-      return;
+      workerId = 'EMP-101'; // Default ID if user leaves blank so modal ALWAYS opens
+      workerIdInput.value = workerId;
     }
 
     const shiftDate = shiftDateInput.value || new Date().toISOString().split('T')[0];
+    modalWorkerIdInput.value = workerId;
+    renderQrModalCode(workerId, shiftDate);
+    qrBadgeModal.style.display = 'flex';
+  }
 
+  function renderQrModalCode(workerId, shiftDate) {
     // Register into Local Database
     const existingIndex = state.dbWorkers.findIndex(w => w.workerId === workerId);
     const workerRecord = {
@@ -306,22 +311,24 @@ document.addEventListener('DOMContentLoaded', () => {
     if (typeof QRCode !== 'undefined') {
       new QRCode(qrcodeDisplay, {
         text: payload,
-        width: 200,
-        height: 200,
+        width: 180,
+        height: 180,
         colorDark: '#0F172A',
         colorLight: '#FFFFFF',
         correctLevel: QRCode.CorrectLevel.H
       });
     }
-
-    qrBadgeModal.style.display = 'flex';
   }
 
-  openQrModalBtn.addEventListener('click', generateAndRegisterWorkerQr);
-  headerQrRegisterBtn.addEventListener('click', () => {
-    switchScreen('scan-screen');
-    workerIdInput.focus();
+  // Update QR Code live as user types inside the modal
+  modalWorkerIdInput.addEventListener('input', (e) => {
+    const newWorkerId = e.target.value.trim() || 'EMP-101';
+    workerIdInput.value = newWorkerId;
+    renderQrModalCode(newWorkerId, shiftDateInput.value || state.shiftDate);
   });
+
+  openQrModalBtn.addEventListener('click', generateAndRegisterWorkerQr);
+  headerQrRegisterBtn.addEventListener('click', generateAndRegisterWorkerQr);
   closeQrModalBtn.addEventListener('click', () => qrBadgeModal.style.display = 'none');
 
   // DOWNLOAD ONLY THE QR CODE AS A PNG FILE
@@ -338,7 +345,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (img && img.src) {
       dataUrl = img.src;
     } else {
-      alert('QR Code image not found.');
+      alert('QR Code image not generated yet.');
       return;
     }
 
@@ -715,7 +722,7 @@ document.addEventListener('DOMContentLoaded', () => {
       statusClass = 'status-elevated';
     }
 
-    const workerId = state.verifiedWorker ? state.verifiedWorker.workerId : (state.workerId || 'UNKNOWN');
+    const workerId = state.verifiedWorker ? state.verifiedWorker.workerId : (state.workerId || 'EMP-101');
     const shiftDate = state.verifiedWorker ? state.verifiedWorker.shiftDate : state.shiftDate;
 
     return {
