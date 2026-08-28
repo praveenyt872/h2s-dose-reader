@@ -1,6 +1,6 @@
 /**
  * H2S Dose Reader — Core Application Script
- * Mandatory Live Camera QR Gatekeeper, Manual Worker Registration & Framed Scannable QR PNG Exporter
+ * Mandatory Live Camera QR Gatekeeper, Manual Worker Registration & Exact Reference QR PNG Exporter
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -266,7 +266,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ==========================================
-  // 4. MANUAL WORKER REGISTRATION & FRAMED PNG EXPORTER
+  // 4. MANUAL WORKER REGISTRATION & EXACT REFERENCE QR PNG EXPORTER
   // ==========================================
   function generateAndRegisterWorkerQr() {
     let workerId = workerIdInput.value.trim();
@@ -329,12 +329,11 @@ document.addEventListener('DOMContentLoaded', () => {
   headerQrRegisterBtn.addEventListener('click', generateAndRegisterWorkerQr);
   closeQrModalBtn.addEventListener('click', () => qrBadgeModal.style.display = 'none');
 
-  // DOWNLOAD CRISP FRAMED SCANNABLE PNG IMAGE
+  // DOWNLOAD EXACT REFERENCE SCANNABLE QR CODE (ROUNDED WHITE CARD WITH GOLD BORDER)
   downloadQrPngBtn.addEventListener('click', downloadQrCodePng);
 
   function downloadQrCodePng() {
     const workerId = badgeWorkerIdText.textContent.trim() || 'EMP-101';
-    const shiftDate = badgeShiftDateText.textContent.trim() || state.shiftDate;
     const qrCanvas = qrcodeDisplay.querySelector('canvas');
     const qrImg = qrcodeDisplay.querySelector('img');
 
@@ -344,63 +343,52 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    // High resolution canvas with Quiet Zone & Framed Border (500x580)
+    // High resolution 400x400 canvas matching exact reference image
     const exportCanvas = document.createElement('canvas');
-    exportCanvas.width = 500;
-    exportCanvas.height = 580;
+    exportCanvas.width = 400;
+    exportCanvas.height = 400;
     const eCtx = exportCanvas.getContext('2d');
 
-    // 1. Fill crisp white background (Quiet zone margin for camera scanners)
+    // Draw Rounded White Card Box with Gold/Yellow Outline Border
+    const pad = 10;
+    const radius = 24;
+    const boxWidth = 400 - pad * 2; // 380
+    const boxHeight = 400 - pad * 2; // 380
+
+    eCtx.beginPath();
+    if (typeof eCtx.roundRect === 'function') {
+      eCtx.roundRect(pad, pad, boxWidth, boxHeight, radius);
+    } else {
+      // Fallback rounded rect for older browsers
+      eCtx.moveTo(pad + radius, pad);
+      eCtx.arcTo(pad + boxWidth, pad, pad + boxWidth, pad + boxHeight, radius);
+      eCtx.arcTo(pad + boxWidth, pad + boxHeight, pad, pad + boxHeight, radius);
+      eCtx.arcTo(pad, pad + boxHeight, pad, pad, radius);
+      eCtx.arcTo(pad, pad, pad + boxWidth, pad, radius);
+      eCtx.closePath();
+    }
+
+    // Fill Solid White
     eCtx.fillStyle = '#FFFFFF';
-    eCtx.fillRect(0, 0, 500, 580);
+    eCtx.fill();
 
-    // 2. Draw Outer Hazard Frame Border
-    eCtx.lineWidth = 10;
-    eCtx.strokeStyle = '#0F172A';
-    eCtx.strokeRect(5, 5, 490, 570);
+    // Gold / Yellow Outline Stroke Border (matching reference image)
+    eCtx.lineWidth = 5;
+    eCtx.strokeStyle = '#FFC72C';
+    eCtx.stroke();
 
-    // 3. Top Hazard Stripe Accent Header
-    eCtx.fillStyle = '#FFC72C';
-    eCtx.fillRect(10, 10, 480, 22);
-
-    // Top Header Text
-    eCtx.fillStyle = '#0F172A';
-    eCtx.font = 'bold 16px sans-serif';
-    eCtx.textAlign = 'center';
-    eCtx.fillText('H2S SAFETY DOSIMETER BADGE', 250, 58);
-
-    // 4. Draw QR Code centered with ample white quiet margin
-    const qrSize = 340;
-    const qrX = (500 - qrSize) / 2; // 80px
-    const qrY = 82;
-
-    // Draw white quiet box behind QR code
-    eCtx.fillStyle = '#FFFFFF';
-    eCtx.fillRect(qrX - 10, qrY - 10, qrSize + 20, qrSize + 20);
+    // Draw QR Code matrix centered inside white card with quiet zone padding
+    const qrSize = 310;
+    const qrX = (400 - qrSize) / 2; // 45px
+    const qrY = (400 - qrSize) / 2; // 45px
 
     eCtx.drawImage(sourceEl, qrX, qrY, qrSize, qrSize);
 
-    // 5. Draw Worker Details Frame & Text
-    eCtx.fillStyle = '#0F172A';
-    eCtx.fillRect(35, 445, 430, 110);
-
-    eCtx.fillStyle = '#FFC72C';
-    eCtx.font = 'bold 26px monospace';
-    eCtx.fillText(`WORKER: ${workerId}`, 250, 482);
-
-    eCtx.fillStyle = '#CBD5E1';
-    eCtx.font = 'bold 15px sans-serif';
-    eCtx.fillText(`SHIFT DATE: ${shiftDate}`, 250, 512);
-
-    eCtx.fillStyle = '#94A3B8';
-    eCtx.font = '11px sans-serif';
-    eCtx.fillText('SCAN VIA CAMERA TO UNLOCK EXPOSURE STRIP SCAN', 250, 536);
-
-    // Export as PNG
+    // Export PNG
     const dataUrl = exportCanvas.toDataURL('image/png');
     const a = document.createElement('a');
     a.href = dataUrl;
-    a.download = `${workerId}_Framed_QRCode.png`;
+    a.download = `${workerId}_QRCode.png`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
