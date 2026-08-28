@@ -23,8 +23,6 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   // DOM Elements
-  const workerIdInput = document.getElementById('workerId');
-  const shiftDateInput = document.getElementById('shiftDate');
   const fileInput = document.getElementById('fileInput');
   const demoSampleBtn = document.getElementById('demoSampleBtn');
   const photoCanvas = document.getElementById('photoCanvas');
@@ -56,7 +54,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // QR Badge Modal Elements
   const headerQrRegisterBtn = document.getElementById('headerQrRegisterBtn');
-  const openQrModalBtn = document.getElementById('openQrModalBtn');
   const qrBadgeModal = document.getElementById('qrBadgeModal');
   const closeQrModalBtn = document.getElementById('closeQrModalBtn');
   const printBadgeBtn = document.getElementById('printBadgeBtn');
@@ -65,6 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const badgeWorkerIdText = document.getElementById('badgeWorkerIdText');
   const badgeShiftDateText = document.getElementById('badgeShiftDateText');
   const modalWorkerIdInput = document.getElementById('modalWorkerIdInput');
+  const modalShiftDateInput = document.getElementById('modalShiftDateInput');
 
   // Readout Cards
   const readoutWhite = document.getElementById('readoutWhite');
@@ -98,9 +96,9 @@ document.addEventListener('DOMContentLoaded', () => {
   let activeMediaStream = null;
   let qrScanAnimationFrame = null;
 
-  // Initialize Form Defaults
-  shiftDateInput.value = state.shiftDate;
-  workerIdInput.value = '';
+  // Initialize Defaults
+  modalShiftDateInput.value = state.shiftDate;
+  modalWorkerIdInput.value = 'EMP-101';
 
   // ==========================================
   // 2. Navigation & Screen Switching
@@ -266,17 +264,15 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ==========================================
-  // 4. MANUAL WORKER REGISTRATION & EXACT REFERENCE QR PNG EXPORTER
+  // 4. WORKER QR REGISTRATION & PNG EXPORTER MODAL
   // ==========================================
   function generateAndRegisterWorkerQr() {
-    let workerId = workerIdInput.value.trim();
-    if (!workerId) {
-      workerId = 'EMP-101';
-      workerIdInput.value = workerId;
-    }
+    let workerId = modalWorkerIdInput.value.trim() || 'EMP-101';
+    let shiftDate = modalShiftDateInput.value || state.shiftDate;
 
-    const shiftDate = shiftDateInput.value || new Date().toISOString().split('T')[0];
     modalWorkerIdInput.value = workerId;
+    modalShiftDateInput.value = shiftDate;
+
     renderQrModalCode(workerId, shiftDate);
     qrBadgeModal.style.display = 'flex';
   }
@@ -321,11 +317,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   modalWorkerIdInput.addEventListener('input', (e) => {
     const newWorkerId = e.target.value.trim() || 'EMP-101';
-    workerIdInput.value = newWorkerId;
-    renderQrModalCode(newWorkerId, shiftDateInput.value || state.shiftDate);
+    const currentShiftDate = modalShiftDateInput.value || state.shiftDate;
+    renderQrModalCode(newWorkerId, currentShiftDate);
   });
 
-  openQrModalBtn.addEventListener('click', generateAndRegisterWorkerQr);
+  modalShiftDateInput.addEventListener('change', (e) => {
+    const currentWorkerId = modalWorkerIdInput.value.trim() || 'EMP-101';
+    const newShiftDate = e.target.value || state.shiftDate;
+    renderQrModalCode(currentWorkerId, newShiftDate);
+  });
+
   headerQrRegisterBtn.addEventListener('click', generateAndRegisterWorkerQr);
   closeQrModalBtn.addEventListener('click', () => qrBadgeModal.style.display = 'none');
 
@@ -359,7 +360,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (typeof eCtx.roundRect === 'function') {
       eCtx.roundRect(pad, pad, boxWidth, boxHeight, radius);
     } else {
-      // Fallback rounded rect for older browsers
       eCtx.moveTo(pad + radius, pad);
       eCtx.arcTo(pad + boxWidth, pad, pad + boxWidth, pad + boxHeight, radius);
       eCtx.arcTo(pad + boxWidth, pad + boxHeight, pad, pad + boxHeight, radius);

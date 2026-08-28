@@ -117,30 +117,6 @@
           </button>
         </div>
       </div>
-
-      <!-- WORKER QR REGISTRATION SECTION -->
-      <div class="card" style="margin-top: auto;">
-        <div class="card-title" style="justify-content: space-between;">
-          <span style="display: flex; align-items: center; gap: 6px; font-size: 0.9rem;">
-            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
-            Register Worker & Download QR Code
-          </span>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label for="workerId">Worker ID</label>
-            <input type="text" id="workerId" placeholder="Enter Worker ID (e.g. EMP-101)">
-          </div>
-          <div class="form-group">
-            <label for="shiftDate">Shift Date</label>
-            <input type="date" id="shiftDate">
-          </div>
-        </div>
-        <button type="button" id="openQrModalBtn" class="btn btn-secondary" style="margin-top: 4px;">
-          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-          Register & Generate Worker QR Code
-        </button>
-      </div>
     </main>
 
     <!-- ==========================================
@@ -371,7 +347,7 @@
     <div class="modal-content print-badge-container" style="text-align: center;">
       <div class="hazard-bar" style="border-radius: 4px 4px 0 0;"></div>
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-        <h3 style="font-size: 1.1rem; font-weight: 800;">Registered Worker QR Code</h3>
+        <h3 style="font-size: 1.1rem; font-weight: 800;">Register Worker & Generate QR</h3>
         <button type="button" id="closeQrModalBtn" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
       </div>
 
@@ -381,10 +357,16 @@
           <span style="font-size: 0.65rem; color: #94A3B8;">SAVED TO DATABASE</span>
         </div>
         
-        <!-- Editable Worker ID inside Modal -->
-        <div class="form-group" style="width: 100%; margin-top: 6px; text-align: left;">
-          <label for="modalWorkerIdInput" style="color: #94A3B8; font-size: 0.75rem;">Worker ID:</label>
-          <input type="text" id="modalWorkerIdInput" placeholder="Enter Worker ID (e.g. EMP-101)" style="font-weight: 800; color: #0F172A; text-align: center;">
+        <!-- Editable Worker ID & Shift Date inside Modal -->
+        <div class="form-row" style="width: 100%; margin-top: 6px; text-align: left;">
+          <div class="form-group">
+            <label for="modalWorkerIdInput" style="color: #94A3B8; font-size: 0.75rem;">Worker ID:</label>
+            <input type="text" id="modalWorkerIdInput" placeholder="Enter Worker ID (e.g. EMP-101)" style="font-weight: 800; color: #0F172A; text-align: center;">
+          </div>
+          <div class="form-group">
+            <label for="modalShiftDateInput" style="color: #94A3B8; font-size: 0.75rem;">Shift Date:</label>
+            <input type="date" id="modalShiftDateInput" style="font-weight: 800; color: #0F172A; text-align: center;">
+          </div>
         </div>
 
         <!-- Only QR Code Image Box -->
