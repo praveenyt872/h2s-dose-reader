@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>H2S Dose Reader — Industrial Dosimeter & QR Compliance System</title>
+
+  <!-- External Stylesheets -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div class="app-container">
+    <!-- Hazard Stripe Top Accent -->
+    <div class="hazard-bar"></div>
+
+    <!-- Header -->
+    <header class="app-header">
+      <div class="brand-title">
+        <h1>
+          H2S Dose Reader
+          <span class="badge-icon">SIH Demo</span>
+        </h1>
+        <div class="subtitle">Cumulative Exposure Dosimeter & Worker QR Reader</div>
+      </div>
+      <button id="headerQrBadgeBtn" class="btn-qr-icon" title="Worker QR Badge Generator">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+        QR Badge
+      </button>
+    </header>
+
+    <!-- Navigation / Tab Bar -->
+    <nav class="nav-tabs">
+      <button class="tab-btn active" data-screen="scan-screen">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+        1. Scan
+      </button>
+      <button class="tab-btn" data-screen="calibrate-screen">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+        2. Calibrate
+      </button>
+      <button class="tab-btn" data-screen="result-screen">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+        3. Result
+      </button>
+      <button class="tab-btn" data-screen="dashboard-screen">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+        4. Log
+      </button>
+    </nav>
+
+    <!-- ==========================================
+         SCREEN 1: SCAN / CAPTURE & QR CODE INTEGRATION
+         ========================================== -->
+    <main id="scan-screen" class="screen-view active">
+      
+      <!-- QR Scanner Banner / Notification -->
+      <div id="qrScanSuccessBanner" class="qr-alert-banner" style="display: none;">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+        <span id="qrScanSuccessText">Worker Verified via QR Code!</span>
+      </div>
+
+      <!-- Worker Compliance Form -->
+      <div class="card">
+        <div class="card-title" style="justify-content: space-between;">
+          <span style="display: flex; align-items: center; gap: 8px;">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            Worker & Shift Compliance
+          </span>
+          <button type="button" id="scanWorkerQrBtn" class="btn-sm-qr">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+            Scan QR
+          </button>
+          <input type="file" id="qrFileInput" accept="image/*" style="display: none;">
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="workerId">Worker ID *</label>
+            <input type="text" id="workerId" placeholder="e.g. WRK-8492" required>
+          </div>
+          <div class="form-group">
+            <label for="shiftDate">Shift Date *</label>
+            <input type="date" id="shiftDate" required>
+          </div>
+        </div>
+      </div>
+
+      <!-- Visual Frame Framing Overlay Guide -->
+      <div class="guide-overlay-card">
+        <div class="card-title" style="justify-content: center; font-size: 0.85rem;">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+          Photo Framing Guide
+        </div>
+        <div class="guide-diagram">
+          <div class="guide-patch patch-white">
+            <span>WHITE</span>
+            <span>REF</span>
+          </div>
+          <div class="guide-patch patch-grey">
+            <span>GREY</span>
+            <span>REF</span>
+          </div>
+          <div class="guide-patch patch-strip">
+            <span>H2S</span>
+            <span>STRIP</span>
+          </div>
+        </div>
+        <div class="guide-instruction">
+          Capture reference scale and chemical strip together. Auto-detect will automatically find patch locations!
+        </div>
+      </div>
+
+      <!-- Action Capture Buttons -->
+      <div style="display: flex; flex-direction: column; gap: 10px; margin-top: auto;">
+        <div class="file-input-wrapper">
+          <button type="button" class="btn btn-primary" style="width: 100%;">
+            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+            Capture / Upload Strip Photo
+          </button>
+          <input type="file" id="fileInput" accept="image/*" capture="environment">
+        </div>
+
+        <div class="form-row">
+          <button type="button" id="openQrModalBtn" class="btn btn-secondary">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+            Generate Worker QR
+          </button>
+          <button type="button" id="demoSampleBtn" class="btn btn-outline">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+            Demo Sample Image
+          </button>
+        </div>
+      </div>
+    </main>
+
+    <!-- ==========================================
+         SCREEN 2: CALIBRATION & POINT SELECTION
+         ========================================== -->
+    <section id="calibrate-screen" class="screen-view">
+      
+      <!-- Auto Detect Alert Banner -->
+      <div id="autoDetectBanner" class="auto-detect-banner" style="display: none;">
+        ✨ Patches Auto-Detected! White, Grey, and Strip sample coordinates identified automatically.
+      </div>
+
+      <!-- Interactive Canvas -->
+      <div class="canvas-wrapper">
+        <canvas id="photoCanvas"></canvas>
+      </div>
+
+      <!-- Step Indicator Prompt -->
+      <div class="step-indicator-bar">
+        <span id="stepInstruction">Tap White Ref → Grey Ref → Chemical Strip (or click Auto-Detect)</span>
+        <span id="stepBadge" class="step-badge">STEP 1/3</span>
+      </div>
+
+      <!-- Live 3-Pin RGB Readouts -->
+      <div class="readouts-grid">
+        <div id="readoutWhite" class="readout-card">
+          <div class="readout-header">
+            <span class="pin-dot dot-white"></span>
+            1. White Ref
+          </div>
+          <div class="rgb-value">Tap Photo</div>
+          <div class="color-swatch-mini"></div>
+        </div>
+
+        <div id="readoutGrey" class="readout-card">
+          <div class="readout-header">
+            <span class="pin-dot dot-grey"></span>
+            2. Grey Ref
+          </div>
+          <div class="rgb-value">Tap Photo</div>
+          <div class="color-swatch-mini"></div>
+        </div>
+
+        <div id="readoutStrip" class="readout-card">
+          <div class="readout-header">
+            <span class="pin-dot dot-strip"></span>
+            3. H2S Strip
+          </div>
+          <div class="rgb-value">Tap Photo</div>
+          <div class="color-swatch-mini"></div>
+        </div>
+      </div>
+
+      <!-- Calibration Action Controls -->
+      <div class="form-row" style="margin-top: auto;">
+        <button type="button" id="autoDetectBtn" class="btn btn-secondary" style="background: #4F46E5; color: #FFFFFF;">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"></path></svg>
+          ✨ Auto-Detect
+        </button>
+        <button type="button" id="resetPinsBtn" class="btn btn-outline">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
+          Reset Pins
+        </button>
+        <button type="button" id="computeDoseBtn" class="btn btn-primary" disabled>
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+          Compute Dose
+        </button>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         SCREEN 3: DOSE RESULT & CALIBRATION CURVE
+         ========================================== -->
+    <section id="result-screen" class="screen-view">
+      <!-- Expiry Warning Alert Banner -->
+      <div id="expiredBanner" class="expired-banner" style="display: none;">
+        <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"></polygon><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+        BADGE EXPIRED — Reading Invalid, Replace Badge
+      </div>
+
+      <!-- Main Result Display Card -->
+      <div id="resultDoseCard" class="result-header-card">
+        <div class="dose-display">
+          <span class="dose-label">Estimated Cumulative Exposure</span>
+          <span id="resultDoseVal" class="dose-value">--.-</span>
+          <span class="dose-unit">ppm·hr</span>
+        </div>
+        <div id="resultStatusBadge" class="status-badge status-normal">
+          Calculating...
+        </div>
+      </div>
+
+      <!-- Color Swatches Comparison -->
+      <div class="swatches-comparison">
+        <div class="swatch-box">
+          <span class="dose-label">Raw Captured Color</span>
+          <div id="rawSwatch" class="swatch-preview"></div>
+          <span id="rawRgbText" class="rgb-value">RGB(0, 0, 0)</span>
+        </div>
+        <div class="swatch-box">
+          <span class="dose-label">Corrected Color</span>
+          <div id="correctedSwatch" class="swatch-preview"></div>
+          <span id="correctedRgbText" class="rgb-value">RGB(0, 0, 0)</span>
+        </div>
+      </div>
+
+      <!-- Expiry Toggle Switch -->
+      <div class="expiry-toggle-card">
+        <span style="font-size: 0.85rem; font-weight: 700;">Expiry Patch Valid?</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="expiryToggle" checked>
+          <span>Yes</span>
+        </label>
+      </div>
+
+      <!-- Visual Calibration Curve Chart Container -->
+      <div class="card">
+        <div class="card-title">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+          Lab Calibration Curve Trace
+        </div>
+        <div id="resultCurveChartContainer" class="curve-chart-wrapper">
+          <!-- Rendered dynamically via script.js -->
+        </div>
+      </div>
+
+      <!-- Technical Breakdown Diagnostics Accordion -->
+      <div class="tech-details-toggle" id="techDetailsToggle">
+        View Mathematical Diagnostics ▼
+      </div>
+      <div id="techDetailsBox" class="tech-details-box" style="display: none;">
+        <!-- Technical calculations populated dynamically via script.js -->
+      </div>
+
+      <!-- Regulatory Disclaimer -->
+      <div class="disclaimer-text">
+        * This is an estimated value based on colorimetric approximation. Actual concentration exposure may vary. Not for medical diagnosis.
+      </div>
+
+      <!-- Actions -->
+      <div class="form-row" style="margin-top: auto;">
+        <button type="button" id="saveLogBtn" class="btn btn-primary">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+          Save to Log
+        </button>
+        <button type="button" onclick="switchScreen('dashboard-screen')" class="btn btn-secondary">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+          Dashboard
+        </button>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         SCREEN 4: DASHBOARD / COMPLIANCE LOG
+         ========================================== -->
+    <section id="dashboard-screen" class="screen-view">
+      <!-- Summary Statistics -->
+      <div class="dashboard-stats">
+        <div class="stat-card">
+          <div id="statTotal" class="stat-number">0</div>
+          <div class="stat-label">Total Readings</div>
+        </div>
+        <div class="stat-card">
+          <div id="statNormal" class="stat-number" style="color: var(--color-status-green);">0</div>
+          <div class="stat-label">Normal</div>
+        </div>
+        <div class="stat-card">
+          <div id="statElevatedHigh" class="stat-number" style="color: var(--color-status-red);">0</div>
+          <div class="stat-label">Action Required</div>
+        </div>
+      </div>
+
+      <!-- Search Filter -->
+      <div class="form-group">
+        <input type="text" id="logSearchInput" placeholder="🔍 Search by Worker ID...">
+      </div>
+
+      <!-- Compliance Data Table -->
+      <div class="log-table-wrapper">
+        <table class="log-table">
+          <thead>
+            <tr>
+              <th>Worker ID</th>
+              <th>Date</th>
+              <th>Dose</th>
+              <th>Status</th>
+              <th>Valid</th>
+              <th>Scanned At</th>
+            </tr>
+          </thead>
+          <tbody id="logTableBody">
+            <!-- Populated dynamically via script.js -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Log Actions -->
+      <div class="form-row" style="margin-top: auto;">
+        <button type="button" id="exportCsvBtn" class="btn btn-secondary">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          Export CSV
+        </button>
+        <button type="button" id="clearLogBtn" class="btn btn-outline" style="color: var(--color-status-red); border-color: var(--color-status-red);">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+          Clear Log
+        </button>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <div>H2S Wristband Dosimeter Reader Prototype — SIH Project</div>
+      <div style="font-size: 0.65rem; margin-top: 2px;">Designed for DGMS & OISD Occupational Health Safety Compliance</div>
+    </footer>
+  </div>
+
+  <!-- ==========================================
+       WORKER QR CODE BADGE MODAL (PRINTABLE)
+       ========================================== -->
+  <div id="qrBadgeModal" class="modal-backdrop" style="display: none;">
+    <div class="modal-content print-badge-container">
+      <div class="hazard-bar" style="border-radius: 4px 4px 0 0;"></div>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <h3 style="font-size: 1.1rem; font-weight: 800;">Worker Safety ID Badge</h3>
+        <button type="button" id="closeQrModalBtn" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
+      </div>
+
+      <!-- Printable Badge -->
+      <div id="printableBadgeCard" class="printable-badge-card">
+        <div class="badge-header">
+          <span style="font-weight: 900; color: #FFC72C;">SIH DOSIMETER BADGE</span>
+          <span style="font-size: 0.65rem; color: #94A3B8;">OISD / DGMS COMPLIANT</span>
+        </div>
+        <div class="badge-body">
+          <div id="qrcodeDisplay" class="qr-code-box"></div>
+          <div class="badge-details">
+            <div class="badge-worker-id" id="badgeWorkerIdText">WRK-8492</div>
+            <div class="badge-field"><strong>Shift Date:</strong> <span id="badgeShiftDateText">2026-08-28</span></div>
+            <div class="badge-field"><strong>Generated:</strong> <span id="badgeTimestampText">16:00:00</span></div>
+            <div class="badge-field" style="margin-top: 4px; font-size: 0.65rem; color: #64748B;">Scan this QR badge to verify worker identity.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Badge Actions -->
+      <div class="form-row" style="margin-top: 14px;">
+        <button type="button" id="printBadgeBtn" class="btn btn-primary" style="flex: 1;">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+          Print / Save Badge
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JavaScript Modules (Loaded synchronously for 100% offline support) -->
+  <script src="qrcode.min.js"></script>
+  <script src="jsqr.js"></script>
+  <script src="calibration.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
