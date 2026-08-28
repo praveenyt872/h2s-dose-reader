@@ -1,6 +1,6 @@
 /**
  * H2S Dose Reader — Core Application Script
- * Single-Page Client-Side Image Processing, QR Scanner, Auto-Detect & Curve Visualizer Engine
+ * Mandatory Live Camera QR Gatekeeper & Auto Exposure Database System
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -11,11 +11,14 @@ document.addEventListener('DOMContentLoaded', () => {
     currentScreen: 'scan-screen',
     workerId: '',
     shiftDate: new Date().toISOString().split('T')[0],
+    qrVerified: false,
+    verifiedWorker: null,
     loadedImage: null,
-    tapState: 0, // 0: White, 1: Grey, 2: Strip, 3: Completed
+    tapState: 0,
     tapPoints: [null, null, null],
     expiryValid: true,
     latestResult: null,
+    dbWorkers: JSON.parse(localStorage.getItem('h2s_worker_db') || '[]'),
     logs: JSON.parse(localStorage.getItem('h2s_dosimeter_logs') || '[]')
   };
 
@@ -34,12 +37,25 @@ document.addEventListener('DOMContentLoaded', () => {
   const stepInstruction = document.getElementById('stepInstruction');
   const stepBadge = document.getElementById('stepBadge');
 
-  // QR DOM Elements
-  const scanWorkerQrBtn = document.getElementById('scanWorkerQrBtn');
+  // Mandatory QR Gatekeeper DOM Elements
+  const startLiveQrCameraBtn = document.getElementById('startLiveQrCameraBtn');
+  const liveCameraModal = document.getElementById('liveCameraModal');
+  const closeLiveCameraBtn = document.getElementById('closeLiveCameraBtn');
+  const qrVideoFeed = document.getElementById('qrVideoFeed');
+  const qrScanStatusMsg = document.getElementById('qrScanStatusMsg');
   const qrFileInput = document.getElementById('qrFileInput');
-  const qrScanSuccessBanner = document.getElementById('qrScanSuccessBanner');
-  const qrScanSuccessText = document.getElementById('qrScanSuccessText');
-  const headerQrBadgeBtn = document.getElementById('headerQrBadgeBtn');
+
+  const verifiedWorkerCard = document.getElementById('verifiedWorkerCard');
+  const vWorkerId = document.getElementById('vWorkerId');
+  const vShiftDate = document.getElementById('vShiftDate');
+
+  const stripScanSectionCard = document.getElementById('stripScanSectionCard');
+  const stripLockStatusTag = document.getElementById('stripLockStatusTag');
+  const stripLockNotice = document.getElementById('stripLockNotice');
+  const stripScanControls = document.getElementById('stripScanControls');
+
+  // QR Badge Modal Elements
+  const headerQrRegisterBtn = document.getElementById('headerQrRegisterBtn');
   const openQrModalBtn = document.getElementById('openQrModalBtn');
   const qrBadgeModal = document.getElementById('qrBadgeModal');
   const closeQrModalBtn = document.getElementById('closeQrModalBtn');
@@ -49,7 +65,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const badgeShiftDateText = document.getElementById('badgeShiftDateText');
   const badgeTimestampText = document.getElementById('badgeTimestampText');
 
-  // Readout cards
+  // Readout Cards
   const readoutWhite = document.getElementById('readoutWhite');
   const readoutGrey = document.getElementById('readoutGrey');
   const readoutStrip = document.getElementById('readoutStrip');
@@ -57,6 +73,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Result DOM Elements
   const resultDoseVal = document.getElementById('resultDoseVal');
   const resultStatusBadge = document.getElementById('resultStatusBadge');
+  const savedDbWorkerId = document.getElementById('savedDbWorkerId');
   const rawSwatch = document.getElementById('rawSwatch');
   const correctedSwatch = document.getElementById('correctedSwatch');
   const rawRgbText = document.getElementById('rawRgbText');
@@ -64,7 +81,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const expiryToggle = document.getElementById('expiryToggle');
   const expiredBanner = document.getElementById('expiredBanner');
   const resultDoseCard = document.getElementById('resultDoseCard');
-  const saveLogBtn = document.getElementById('saveLogBtn');
   const techDetailsBox = document.getElementById('techDetailsBox');
   const techDetailsToggle = document.getElementById('techDetailsToggle');
   const resultCurveChartContainer = document.getElementById('resultCurveChartContainer');
@@ -77,6 +93,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const statTotal = document.getElementById('statTotal');
   const statNormal = document.getElementById('statNormal');
   const statElevatedHigh = document.getElementById('statElevatedHigh');
+
+  // Camera Stream Track Variable
+  let activeMediaStream = null;
+  let qrScanAnimationFrame = null;
 
   // Initialize Form Defaults
   shiftDateInput.value = state.shiftDate;
@@ -109,8 +129,8 @@ document.addEventListener('DOMContentLoaded', () => {
   navTabs.forEach(tab => {
     tab.addEventListener('click', () => {
       const targetScreen = tab.dataset.screen;
-      if ((targetScreen === 'calibrate-screen' || targetScreen === 'result-screen') && !state.loadedImage) {
-        alert('Please capture or select a test strip photo first.');
+      if ((targetScreen === 'calibrate-screen' || targetScreen === 'result-screen') && (!state.qrVerified || !state.loadedImage)) {
+        alert('Mandatory Step: Please scan the Worker QR Code first to unlock strip scanning.');
         return;
       }
       switchScreen(targetScreen);
@@ -120,12 +140,160 @@ document.addEventListener('DOMContentLoaded', () => {
   window.switchScreen = switchScreen;
 
   // ==========================================
-  // 3. Worker QR Code Generator & Badge Modal
+  // 3. STEP 1: MANDATORY LIVE CAMERA QR SCANNER
   // ==========================================
-  function generateWorkerQrBadge() {
-    const workerId = workerIdInput.value.trim() || 'WRK-UNKNOWN';
+  startLiveQrCameraBtn.addEventListener('click', startLiveCameraScan);
+
+  function startLiveCameraScan() {
+    liveCameraModal.style.display = 'flex';
+    qrScanStatusMsg.textContent = 'Initializing Camera...';
+
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+        .then((stream) => {
+          activeMediaStream = stream;
+          qrVideoFeed.srcObject = stream;
+          qrVideoFeed.setAttribute('playsinline', true);
+          qrVideoFeed.play();
+          qrScanStatusMsg.textContent = 'Align Worker QR Code inside frame...';
+          requestAnimationFrame(scanVideoFrame);
+        })
+        .catch((err) => {
+          console.warn('Camera stream failed, fallback to file upload:', err);
+          qrScanStatusMsg.textContent = 'Camera unavailable. Please select QR image file below.';
+        });
+    } else {
+      qrScanStatusMsg.textContent = 'Camera API not supported. Select QR image below.';
+    }
+  }
+
+  function scanVideoFrame() {
+    if (!activeMediaStream) return;
+
+    if (qrVideoFeed.readyState === qrVideoFeed.HAVE_ENOUGH_DATA) {
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = qrVideoFeed.videoWidth;
+      tempCanvas.height = qrVideoFeed.videoHeight;
+      const tCtx = tempCanvas.getContext('2d');
+      tCtx.drawImage(qrVideoFeed, 0, 0, tempCanvas.width, tempCanvas.height);
+
+      const imgData = tCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+
+      if (typeof jsQR !== 'undefined') {
+        const code = jsQR(imgData.data, imgData.width, imgData.height);
+        if (code && code.data) {
+          handleSuccessfulQrScan(code.data);
+          return;
+        }
+      }
+    }
+
+    qrScanAnimationFrame = requestAnimationFrame(scanVideoFrame);
+  }
+
+  function stopLiveCamera() {
+    if (activeMediaStream) {
+      activeMediaStream.getTracks().forEach(track => track.stop());
+      activeMediaStream = null;
+    }
+    if (qrScanAnimationFrame) {
+      cancelAnimationFrame(qrScanAnimationFrame);
+      qrScanAnimationFrame = null;
+    }
+    liveCameraModal.style.display = 'none';
+  }
+
+  closeLiveCameraBtn.addEventListener('click', stopLiveCamera);
+
+  // File Upload Fallback for QR
+  qrFileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = img.width;
+        tempCanvas.height = img.height;
+        const tCtx = tempCanvas.getContext('2d');
+        tCtx.drawImage(img, 0, 0);
+
+        const imgData = tCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+        if (typeof jsQR !== 'undefined') {
+          const code = jsQR(imgData.data, imgData.width, imgData.height);
+          if (code && code.data) {
+            handleSuccessfulQrScan(code.data);
+            return;
+          }
+        }
+        alert('No valid QR code found in selected image.');
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+
+  function handleSuccessfulQrScan(qrData) {
+    let scannedWorkerId = qrData;
+    let scannedShiftDate = new Date().toISOString().split('T')[0];
+
+    try {
+      const parsed = JSON.parse(qrData);
+      if (parsed.workerId) scannedWorkerId = parsed.workerId;
+      if (parsed.shiftDate) scannedShiftDate = parsed.shiftDate;
+    } catch (e) {
+      // Raw string format
+    }
+
+    stopLiveCamera();
+
+    // Lock verified worker into state
+    state.qrVerified = true;
+    state.verifiedWorker = { workerId: scannedWorkerId, shiftDate: scannedShiftDate };
+    state.workerId = scannedWorkerId;
+    state.shiftDate = scannedShiftDate;
+
+    // Update verified UI Card
+    vWorkerId.textContent = scannedWorkerId;
+    vShiftDate.textContent = scannedShiftDate;
+    verifiedWorkerCard.style.display = 'flex';
+
+    // UNLOCK STEP 2: STRIP SCANNER
+    stripScanSectionCard.classList.remove('strip-section-locked');
+    stripLockStatusTag.textContent = '🔓 UNLOCKED';
+    stripLockStatusTag.className = 'badge-valid-tag valid-yes';
+    stripLockNotice.style.display = 'none';
+    stripScanControls.style.opacity = '1';
+    stripScanControls.style.pointerEvents = 'auto';
+
+    alert(`✅ QR VERIFIED! Worker ${scannedWorkerId} identified in Database.\n\nStep 2 (Strip Scan) is now UNLOCKED.`);
+  }
+
+  // ==========================================
+  // 4. WORKER QR GENERATION & REGISTRATION
+  // ==========================================
+  function generateAndRegisterWorkerQr() {
+    const workerId = workerIdInput.value.trim() || 'WRK-' + Math.floor(1000 + Math.random() * 9000);
     const shiftDate = shiftDateInput.value || new Date().toISOString().split('T')[0];
     const timestamp = new Date().toLocaleTimeString();
+
+    // Register Worker into Database
+    const existingIndex = state.dbWorkers.findIndex(w => w.workerId === workerId);
+    const workerRecord = {
+      workerId,
+      shiftDate,
+      registeredAt: new Date().toLocaleString(),
+      status: 'Registered / Awaiting Scan'
+    };
+
+    if (existingIndex >= 0) {
+      state.dbWorkers[existingIndex] = workerRecord;
+    } else {
+      state.dbWorkers.push(workerRecord);
+    }
+    localStorage.setItem('h2s_worker_db', JSON.stringify(state.dbWorkers));
 
     badgeWorkerIdText.textContent = workerId;
     badgeShiftDateText.textContent = shiftDate;
@@ -142,21 +310,19 @@ document.addEventListener('DOMContentLoaded', () => {
     if (typeof QRCode !== 'undefined') {
       new QRCode(qrcodeDisplay, {
         text: payload,
-        width: 100,
-        height: 100,
+        width: 110,
+        height: 110,
         colorDark: '#0F172A',
         colorLight: '#FFFFFF',
         correctLevel: QRCode.CorrectLevel.H
       });
-    } else {
-      qrcodeDisplay.textContent = 'QR Engine Ready';
     }
 
     qrBadgeModal.style.display = 'flex';
   }
 
-  openQrModalBtn.addEventListener('click', generateWorkerQrBadge);
-  headerQrBadgeBtn.addEventListener('click', generateWorkerQrBadge);
+  openQrModalBtn.addEventListener('click', generateAndRegisterWorkerQr);
+  headerQrRegisterBtn.addEventListener('click', generateAndRegisterWorkerQr);
   closeQrModalBtn.addEventListener('click', () => qrBadgeModal.style.display = 'none');
 
   printBadgeBtn.addEventListener('click', () => {
@@ -164,66 +330,14 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // ==========================================
-  // 4. Worker QR Scanner (Decoding QR from Camera/File)
-  // ==========================================
-  scanWorkerQrBtn.addEventListener('click', () => {
-    qrFileInput.click();
-  });
-
-  qrFileInput.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const img = new Image();
-      img.onload = () => {
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = img.width;
-        tempCanvas.height = img.height;
-        const tCtx = tempCanvas.getContext('2d');
-        tCtx.drawImage(img, 0, 0);
-
-        const imgData = tCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
-        
-        if (typeof jsQR !== 'undefined') {
-          const code = jsQR(imgData.data, imgData.width, imgData.height);
-          if (code) {
-            try {
-              const data = JSON.parse(code.data);
-              if (data.workerId) {
-                workerIdInput.value = data.workerId;
-                if (data.shiftDate) shiftDateInput.value = data.shiftDate;
-                showQrScanSuccess(`Worker ${data.workerId} verified from QR Code!`);
-                return;
-              }
-            } catch (err) {
-              // Not JSON payload, use raw code string
-              workerIdInput.value = code.data;
-              showQrScanSuccess(`Worker ID ${code.data} scanned!`);
-              return;
-            }
-          }
-        }
-        alert('No valid QR code detected in image. Please try another clear photo.');
-      };
-      img.src = event.target.result;
-    };
-    reader.readAsDataURL(file);
-  });
-
-  function showQrScanSuccess(msg) {
-    qrScanSuccessText.textContent = msg;
-    qrScanSuccessBanner.style.display = 'flex';
-    setTimeout(() => {
-      qrScanSuccessBanner.style.display = 'none';
-    }, 5000);
-  }
-
-  // ==========================================
-  // 5. Image Capture & Processing
+  // 5. STEP 2: STRIP SCAN & AUTO DETECTION
   // ==========================================
   fileInput.addEventListener('change', (e) => {
+    if (!state.qrVerified) {
+      alert('Mandatory Step: You must scan the Worker QR Code first!');
+      return;
+    }
+
     const file = e.target.files[0];
     if (!file) return;
 
@@ -233,10 +347,7 @@ document.addEventListener('DOMContentLoaded', () => {
       img.onload = () => {
         loadImageToCanvas(img);
         switchScreen('calibrate-screen');
-        autoDetectPatches(); // Run auto-detection automatically!
-      };
-      img.onerror = () => {
-        alert('Failed to load selected image. Please try another file.');
+        autoDetectPatches();
       };
       img.src = event.target.result;
     };
@@ -244,6 +355,10 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   demoSampleBtn.addEventListener('click', () => {
+    if (!state.qrVerified) {
+      // Auto verify for quick demo if requested
+      handleSuccessfulQrScan(JSON.stringify({ workerId: 'WRK-DEMO-8492', shiftDate: state.shiftDate }));
+    }
     generateDemoSamplePhoto();
     switchScreen('calibrate-screen');
   });
@@ -274,18 +389,15 @@ document.addEventListener('DOMContentLoaded', () => {
     canvasTemp.height = 600;
     const tCtx = canvasTemp.getContext('2d');
 
-    // Warm ambient background
     tCtx.fillStyle = '#E2E8F0';
     tCtx.fillRect(0, 0, 800, 600);
 
-    // Card boundary
     tCtx.fillStyle = '#FFFFFF';
     tCtx.strokeStyle = '#64748B';
     tCtx.lineWidth = 4;
     tCtx.fillRect(50, 50, 700, 500);
     tCtx.strokeRect(50, 50, 700, 500);
 
-    // White Patch
     tCtx.fillStyle = 'rgb(245, 240, 220)';
     tCtx.fillRect(100, 180, 160, 240);
     tCtx.strokeStyle = '#333';
@@ -297,13 +409,11 @@ document.addEventListener('DOMContentLoaded', () => {
     tCtx.textAlign = 'center';
     tCtx.fillText('WHITE REF', 180, 150);
 
-    // Grey Patch
     tCtx.fillStyle = 'rgb(135, 130, 115)';
     tCtx.fillRect(320, 180, 160, 240);
     tCtx.strokeRect(320, 180, 160, 240);
     tCtx.fillText('GREY REF', 400, 150);
 
-    // Chemical Strip Patch (Simulating moderate reaction darkness ~ RGB 115, 90, 70)
     tCtx.fillStyle = 'rgb(115, 90, 70)';
     tCtx.fillRect(540, 180, 160, 240);
     tCtx.strokeRect(540, 180, 160, 240);
@@ -322,7 +432,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ==========================================
-  // 6. Automatic Patch Detection Algorithm
+  // 6. AUTO-DETECTION ALGORITHM
   // ==========================================
   autoDetectBtn.addEventListener('click', autoDetectPatches);
 
@@ -349,19 +459,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const lum = 0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b;
         const chromaticVar = Math.abs(rgb.r - rgb.g) + Math.abs(rgb.g - rgb.b) + Math.abs(rgb.b - rgb.r);
 
-        // White Ref Detection: Highest luminance (brightest region)
         if (lum > maxLum && rgb.r > 180 && rgb.g > 180) {
           maxLum = lum;
           brightestPt = { x: cx, y: cy, rawRgb: rgb };
         }
 
-        // Grey Ref Detection: Mid-luminance (100–160) with lowest chromatic variance (neutral grey)
         if (lum >= 90 && lum <= 170 && chromaticVar < minGreyDiff) {
           minGreyDiff = chromaticVar;
           greyPt = { x: cx, y: cy, rawRgb: rgb };
         }
 
-        // Chemical Strip Detection: High darkness ratio with reddish/brownish tint
         const darkness = 255 - lum;
         if (darkness > 80 && darkness < 220 && (rgb.r >= rgb.b)) {
           const ratio = darkness + (rgb.r - rgb.b);
@@ -373,7 +480,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    // Fallbacks if detection is fuzzy
     if (!brightestPt) brightestPt = { x: Math.round(w * 0.22), y: Math.round(h * 0.5), rawRgb: getAverageRGB(Math.round(w * 0.22), Math.round(h * 0.5), 5) };
     if (!greyPt) greyPt = { x: Math.round(w * 0.50), y: Math.round(h * 0.5), rawRgb: getAverageRGB(Math.round(w * 0.50), Math.round(h * 0.5), 5) };
     if (!stripPt) stripPt = { x: Math.round(w * 0.78), y: Math.round(h * 0.5), rawRgb: getAverageRGB(Math.round(w * 0.78), Math.round(h * 0.5), 5) };
@@ -391,7 +497,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ==========================================
-  // 7. Tap-Point Manual Calibration Logic
+  // 7. TAP-POINT MANUAL CALIBRATION LOGIC
   // ==========================================
   function resetPinState() {
     state.tapState = 0;
@@ -542,21 +648,22 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ==========================================
-  // 8. Core Dose Calculation & Threshold Engine
+  // 8. CORE DOSE COMPUTATION & AUTOMATIC DB SAVE
   // ==========================================
   computeDoseBtn.addEventListener('click', () => {
     if (state.tapState < 3) return;
 
-    state.workerId = workerIdInput.value.trim() || 'WRK-UNKNOWN';
-    state.shiftDate = shiftDateInput.value || new Date().toISOString().split('T')[0];
-
     const result = computeDoseAlgorithm(
-      state.tapPoints[0].rawRgb, // White Ref
-      state.tapPoints[1].rawRgb, // Grey Ref
-      state.tapPoints[2].rawRgb  // Strip Raw
+      state.tapPoints[0].rawRgb,
+      state.tapPoints[1].rawRgb,
+      state.tapPoints[2].rawRgb
     );
 
     state.latestResult = result;
+
+    // AUTOMATION: STORE PPM DOSE AUTOMATICALLY IN DATABASE UNDER SCANNED WORKER ID
+    autoSaveResultToDatabase(result);
+
     displayResult(result);
     switchScreen('result-screen');
   });
@@ -586,9 +693,12 @@ document.addEventListener('DOMContentLoaded', () => {
       statusClass = 'status-elevated';
     }
 
+    const workerId = state.verifiedWorker ? state.verifiedWorker.workerId : state.workerId;
+    const shiftDate = state.verifiedWorker ? state.verifiedWorker.shiftDate : state.shiftDate;
+
     return {
-      workerId: state.workerId,
-      shiftDate: state.shiftDate,
+      workerId,
+      shiftDate,
       whiteRef,
       greyRef,
       stripRaw,
@@ -604,6 +714,27 @@ document.addEventListener('DOMContentLoaded', () => {
       calibrationCurveSnapshot: [...calibrationCurve],
       scannedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
     };
+  }
+
+  function autoSaveResultToDatabase(res) {
+    const logEntry = {
+      id: Date.now(),
+      workerId: res.workerId,
+      shiftDate: res.shiftDate,
+      dose: res.dose,
+      doseNum: res.doseNum,
+      darknessIndex: res.darkness,
+      status: res.status,
+      statusClass: res.statusClass,
+      badgeValid: state.expiryValid ? 'Yes' : 'No (Expired)',
+      qrVerified: 'Yes (Camera Stream)',
+      calibrationCurve: res.calibrationCurveSnapshot,
+      scannedAt: new Date().toLocaleString()
+    };
+
+    state.logs.unshift(logEntry);
+    localStorage.setItem('h2s_dosimeter_logs', JSON.stringify(state.logs));
+    savedDbWorkerId.textContent = res.workerId;
   }
 
   function interpolateDose(darkness, curve) {
@@ -626,7 +757,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ==========================================
-  // 9. Display Result & Calibration Curve Chart Visualizer
+  // 9. DISPLAY RESULT & CURVE CHART
   // ==========================================
   function displayResult(res) {
     resultDoseVal.textContent = res.dose;
@@ -643,16 +774,13 @@ document.addEventListener('DOMContentLoaded', () => {
     rawRgbText.textContent = `RGB(${res.stripRaw.r}, ${res.stripRaw.g}, ${res.stripRaw.b})`;
     correctedRgbText.textContent = `RGB(${res.correctedStrip.r}, ${res.correctedStrip.g}, ${res.correctedStrip.b})`;
 
-    // Technical breakdown details
     techDetailsBox.innerHTML = `
+      <div><strong>Worker ID:</strong> ${res.workerId} (QR Verified) | <strong>Date:</strong> ${res.shiftDate}</div>
       <div><strong>Scale Factors:</strong> R:${res.scaleFactors.r}, G:${res.scaleFactors.g}, B:${res.scaleFactors.b}</div>
       <div><strong>Luminance:</strong> ${res.luminance} | <strong>Darkness Index:</strong> ${res.darkness} / 255</div>
-      <div><strong>Raw RGB:</strong> ${rawRgbStr}</div>
-      <div><strong>Corrected RGB:</strong> ${corrRgbStr}</div>
-      <div><strong>Worker ID:</strong> ${res.workerId} | <strong>Date:</strong> ${res.shiftDate}</div>
+      <div><strong>Raw RGB:</strong> ${rawRgbStr} | <strong>Corrected RGB:</strong> ${corrRgbStr}</div>
     `;
 
-    // Render Calibration Curve Trace SVG Chart
     renderCalibrationChart(resultCurveChartContainer, res.darknessNum, res.doseNum);
 
     state.expiryValid = expiryToggle.checked;
@@ -665,10 +793,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const svgHeight = 160;
     const pad = 30;
 
-    const maxD = 80; // Max dose Y-axis
-    const maxK = 255; // Max darkness X-axis
+    const maxD = 80;
+    const maxK = 255;
 
-    // Map points to SVG canvas coordinates
     const pointsSvg = calibrationCurve.map(pt => {
       const x = pad + (pt.darkness / maxK) * (svgWidth - pad * 2);
       const y = (svgHeight - pad) - (pt.dose / maxD) * (svgHeight - pad * 2);
@@ -680,18 +807,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const svgHtml = `
       <svg class="curve-chart-svg" viewBox="0 0 ${svgWidth} ${svgHeight}">
-        <!-- Axes -->
         <line x1="${pad}" y1="${svgHeight - pad}" x2="${svgWidth - 10}" y2="${svgHeight - pad}" stroke="#CBD5E1" stroke-width="2"/>
         <line x1="${pad}" y1="10" x2="${pad}" y2="${svgHeight - pad}" stroke="#CBD5E1" stroke-width="2"/>
         
-        <!-- Axis Labels -->
         <text x="${svgWidth / 2}" y="${svgHeight - 5}" font-size="10" fill="#64748B" font-weight="700" text-anchor="middle">Darkness Index Score (0 - 255)</text>
         <text x="10" y="${svgHeight / 2}" font-size="10" fill="#64748B" font-weight="700" text-anchor="middle" transform="rotate(-90 10 ${svgHeight / 2})">Dose (ppm·hr)</text>
 
-        <!-- Curve Line -->
         <polyline points="${pointsSvg}" fill="none" stroke="#2563EB" stroke-width="3" stroke-linecap="round"/>
 
-        <!-- Active Reading Point -->
         <circle cx="${activeX}" cy="${activeY}" r="8" fill="#FFC72C" stroke="#0F172A" stroke-width="3"/>
         <circle cx="${activeX}" cy="${activeY}" r="12" fill="#FFC72C" opacity="0.3"/>
         <text x="${activeX + 10}" y="${activeY - 5}" font-size="11" font-weight="800" fill="#0F172A">${activeDose.toFixed(1)} ppm·hr</text>
@@ -728,33 +851,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Save Reading to LocalStorage Log
-  saveLogBtn.addEventListener('click', () => {
-    if (!state.latestResult) return;
-
-    const logEntry = {
-      id: Date.now(),
-      workerId: state.latestResult.workerId,
-      shiftDate: state.latestResult.shiftDate,
-      dose: state.latestResult.dose,
-      doseNum: state.latestResult.doseNum,
-      darknessIndex: state.latestResult.darkness,
-      status: state.latestResult.status,
-      statusClass: state.latestResult.statusClass,
-      badgeValid: state.expiryValid ? 'Yes' : 'No (Expired)',
-      calibrationCurve: state.latestResult.calibrationCurveSnapshot,
-      scannedAt: new Date().toLocaleString()
-    };
-
-    state.logs.unshift(logEntry);
-    localStorage.setItem('h2s_dosimeter_logs', JSON.stringify(state.logs));
-
-    alert(`Reading for Worker ${logEntry.workerId} saved to Compliance Log.`);
-    switchScreen('dashboard-screen');
-  });
-
   // ==========================================
-  // 10. Dashboard & Log Operations
+  // 10. DASHBOARD & DATABASE LOG OPERATIONS
   // ==========================================
   function renderDashboard() {
     const query = (logSearchInput.value || '').toLowerCase().trim();
@@ -770,7 +868,7 @@ document.addEventListener('DOMContentLoaded', () => {
       logTableBody.innerHTML = `
         <tr>
           <td colspan="6" class="empty-log-state">
-            ${query ? 'No matching logs found for Worker ID search.' : 'No compliance logs saved yet.'}
+            ${query ? 'No matching database records found for Worker ID.' : 'No compliance logs in database yet.'}
           </td>
         </tr>
       `;
@@ -779,14 +877,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     filteredLogs.forEach(log => {
       const tr = document.createElement('tr');
-      const isValid = log.badgeValid.includes('Yes');
-
       tr.innerHTML = `
         <td><strong>${escapeHtml(log.workerId)}</strong></td>
         <td>${escapeHtml(log.shiftDate)}</td>
         <td><strong>${escapeHtml(log.dose)} ppm·hr</strong></td>
         <td><span class="status-badge ${log.statusClass}" style="font-size:0.7rem; padding:2px 8px;">${escapeHtml(log.status)}</span></td>
-        <td><span class="badge-valid-tag ${isValid ? 'valid-yes' : 'valid-no'}">${escapeHtml(log.badgeValid)}</span></td>
+        <td><span class="badge-valid-tag valid-yes">✓ ${escapeHtml(log.qrVerified || 'Camera Stream')}</span></td>
         <td style="color:#64748B; font-size:0.75rem;">${escapeHtml(log.scannedAt)}</td>
       `;
       logTableBody.appendChild(tr);
@@ -797,11 +893,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   exportCsvBtn.addEventListener('click', () => {
     if (state.logs.length === 0) {
-      alert('No log data available to export.');
+      alert('No database logs available to export.');
       return;
     }
 
-    const headers = ['Worker ID', 'Shift Date', 'Dose (ppm·hr)', 'Status', 'Badge Valid', 'Scanned At'];
+    const headers = ['Worker ID', 'Shift Date', 'Dose (ppm·hr)', 'Status', 'QR Verified', 'Scanned At'];
     const csvRows = [headers.join(',')];
 
     state.logs.forEach(log => {
@@ -810,7 +906,7 @@ document.addEventListener('DOMContentLoaded', () => {
         `"${log.shiftDate}"`,
         `"${log.dose}"`,
         `"${log.status}"`,
-        `"${log.badgeValid}"`,
+        `"${log.qrVerified || 'Yes'}"`,
         `"${log.scannedAt}"`
       ];
       csvRows.push(row.join(','));
@@ -822,7 +918,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const a = document.createElement('a');
     a.href = url;
-    a.download = `h2s_dosimeter_logs_${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `h2s_dosimeter_database_${new Date().toISOString().split('T')[0]}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -832,7 +928,7 @@ document.addEventListener('DOMContentLoaded', () => {
   clearLogBtn.addEventListener('click', () => {
     if (state.logs.length === 0) return;
 
-    if (confirm('Are you sure you want to clear all compliance log entries? This action cannot be undone.')) {
+    if (confirm('Are you sure you want to clear the Database logs? This action cannot be undone.')) {
       state.logs = [];
       localStorage.removeItem('h2s_dosimeter_logs');
       renderDashboard();

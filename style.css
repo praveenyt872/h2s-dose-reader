@@ -24,9 +24,9 @@
   --color-status-red-bg: #FEE2E2;
   
   /* Pins & Calibration Colors */
-  --color-pin-white: #2563EB; /* Blue ring for white ref */
-  --color-pin-grey: #8B5CF6;  /* Purple ring for grey ref */
-  --color-pin-strip: #EA580C; /* Orange ring for strip sample */
+  --color-pin-white: #2563EB;
+  --color-pin-grey: #8B5CF6;
+  --color-pin-strip: #EA580C;
 
   /* Typography & Spacing */
   --font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
@@ -38,7 +38,6 @@
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
 }
 
-/* Reset & Box Sizing */
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
@@ -57,7 +56,6 @@ body {
   padding-bottom: 40px;
 }
 
-/* Main Container */
 .app-container {
   width: 100%;
   max-width: 640px;
@@ -77,7 +75,6 @@ body {
   }
 }
 
-/* Hazard Stripe Header Bar */
 .hazard-bar {
   height: 8px;
   background: repeating-linear-gradient(
@@ -89,7 +86,6 @@ body {
   );
 }
 
-/* Header */
 .app-header {
   background-color: var(--color-industrial-dark);
   color: #FFFFFF;
@@ -150,21 +146,7 @@ body {
   color: #FFFFFF;
 }
 
-.btn-sm-qr {
-  background-color: var(--color-hazard-yellow);
-  color: var(--color-industrial-dark);
-  border: none;
-  padding: 4px 10px;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  font-weight: 800;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-/* Top Navigation / Tab Bar */
+/* Nav Tabs */
 .nav-tabs {
   display: flex;
   background-color: var(--color-industrial-slate);
@@ -173,17 +155,17 @@ body {
 
 .tab-btn {
   flex: 1;
-  padding: 12px 8px;
+  padding: 12px 6px;
   background: transparent;
   border: none;
   color: #94A3B8;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 4px;
   transition: all 0.2s ease;
   border-bottom: 3px solid transparent;
 }
@@ -199,7 +181,6 @@ body {
   background-color: rgba(255, 255, 255, 0.08);
 }
 
-/* Screen Views */
 .screen-view {
   display: none;
   padding: 20px;
@@ -218,7 +199,6 @@ body {
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Section Titles & Cards */
 .card {
   background-color: #FFFFFF;
   border: 1px solid var(--color-border);
@@ -237,6 +217,98 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+/* HERO QR CARD (MANDATORY SCANNER) */
+.card-hero-qr {
+  background: linear-gradient(180deg, #FFFFFF, #FFFDF0);
+  border: 2px solid var(--color-hazard-yellow);
+  box-shadow: var(--shadow-md);
+}
+
+.badge-required {
+  background-color: #EF4444;
+  color: #FFFFFF;
+  font-size: 0.65rem;
+  font-weight: 900;
+  padding: 2px 8px;
+  border-radius: 10px;
+  letter-spacing: 0.05em;
+}
+
+.hero-instruction {
+  font-size: 0.85rem;
+  color: var(--color-industrial-slate);
+}
+
+.btn-hero-qr {
+  font-size: 1.05rem;
+  font-weight: 900;
+  padding: 18px 24px;
+  letter-spacing: 0.02em;
+  background-color: var(--color-hazard-yellow);
+  color: var(--color-industrial-dark);
+  box-shadow: 0 4px 12px rgba(217, 160, 6, 0.4);
+  animation: pulseGlow 2s infinite alternate;
+}
+
+@keyframes pulseGlow {
+  from { box-shadow: 0 4px 12px rgba(217, 160, 6, 0.3); }
+  to { box-shadow: 0 6px 20px rgba(217, 160, 6, 0.6); transform: translateY(-1px); }
+}
+
+.verified-worker-card {
+  background: #D1FAE5;
+  border: 2px solid #10B981;
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  animation: fadeIn 0.3s ease;
+}
+
+.verified-header {
+  color: #047857;
+  font-weight: 800;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.verified-details {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+  color: #065F46;
+}
+
+/* STRIP SCAN LOCKED SECTION */
+.strip-section-locked {
+  border-color: #CBD5E1;
+  transition: all 0.3s ease;
+}
+
+.lock-tag {
+  background-color: #64748B;
+  color: #FFFFFF;
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.lock-notice-box {
+  background-color: #FEF3C7;
+  color: #92400E;
+  border: 1px solid #F59E0B;
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-align: center;
 }
 
 /* Form Inputs */
@@ -281,67 +353,7 @@ select:focus {
   background-color: #FFFFFF;
 }
 
-/* Visual Framing Overlay Graphic */
-.guide-overlay-card {
-  background-color: #F1F5F9;
-  border: 1.5px dashed var(--color-border);
-  border-radius: var(--radius-md);
-  padding: 14px;
-  text-align: center;
-}
-
-.guide-diagram {
-  margin: 10px auto;
-  max-width: 280px;
-  height: 90px;
-  border: 2px solid var(--color-industrial-dark);
-  border-radius: var(--radius-sm);
-  background: #FFFFFF;
-  display: flex;
-  align-items: center;
-  justify-content: space-around;
-  padding: 8px;
-  gap: 6px;
-  box-shadow: inset 0 0 4px rgba(0,0,0,0.05);
-}
-
-.guide-patch {
-  flex: 1;
-  height: 100%;
-  border-radius: 4px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.65rem;
-  font-weight: 800;
-  border: 1px solid rgba(0,0,0,0.15);
-}
-
-.patch-white { background: #FFFFFF; color: #333; border: 1.5px solid #CBD5E1; }
-.patch-grey { background: #94A3B8; color: #FFF; }
-.patch-strip { background: #78350F; color: #FFF; }
-
-.guide-instruction {
-  font-size: 0.75rem;
-  color: var(--color-slate-muted);
-  margin-top: 4px;
-}
-
-/* Banners & Notifications */
-.qr-alert-banner {
-  background-color: #D1FAE5;
-  color: #047857;
-  border: 1.5px solid #10B981;
-  padding: 10px 14px;
-  border-radius: var(--radius-sm);
-  font-size: 0.85rem;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
+/* Banners */
 .auto-detect-banner {
   background-color: #EEF2FF;
   color: #4338CA;
@@ -350,7 +362,19 @@ select:focus {
   border-radius: var(--radius-sm);
   font-size: 0.85rem;
   font-weight: 700;
-  animation: fadeIn 0.3s ease;
+}
+
+.auto-save-confirm-banner {
+  background-color: #D1FAE5;
+  color: #047857;
+  border: 1.5px solid #10B981;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 /* Buttons */
@@ -464,7 +488,6 @@ select:focus {
   font-weight: 800;
 }
 
-/* Live Pin Readouts */
 .readouts-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -601,7 +624,6 @@ select:focus {
   border: 1px solid var(--color-status-red);
 }
 
-/* Color Swatches Breakdown */
 .swatches-comparison {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -627,7 +649,6 @@ select:focus {
   box-shadow: inset 0 0 2px rgba(0,0,0,0.2);
 }
 
-/* Expiry Toggle & Warning Banner */
 .expiry-toggle-card {
   display: flex;
   align-items: center;
@@ -675,7 +696,6 @@ select:focus {
   padding: 0 8px;
 }
 
-/* Calibration Curve Chart Visualizer */
 .curve-chart-wrapper {
   width: 100%;
   height: 180px;
@@ -694,7 +714,6 @@ select:focus {
   overflow: visible;
 }
 
-/* Math Technical Accordion / Details */
 .tech-details-toggle {
   font-size: 0.8rem;
   color: var(--color-slate-muted);
@@ -798,7 +817,51 @@ select:focus {
   font-size: 0.875rem;
 }
 
-/* Worker QR Printable Badge Card */
+/* LIVE CAMERA QR VIEWPORT */
+.qr-video-viewport {
+  position: relative;
+  width: 100%;
+  max-width: 380px;
+  height: 280px;
+  margin: 10px auto;
+  background: #000000;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+#qrVideoFeed {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.qr-scanner-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.qr-target-box {
+  width: 200px;
+  height: 200px;
+  border: 3px solid var(--color-hazard-yellow);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 0 0 1000px rgba(0, 0, 0, 0.4);
+  animation: scanLine 2s infinite alternate;
+}
+
+@keyframes scanLine {
+  from { border-color: var(--color-hazard-yellow); }
+  to { border-color: #10B981; }
+}
+
+/* Printable Badge Card */
 .printable-badge-card {
   background: #0F172A;
   color: #FFFFFF;
@@ -854,7 +917,6 @@ select:focus {
   color: #CBD5E1;
 }
 
-/* Footer Disclaimer */
 .app-footer {
   text-align: center;
   padding: 16px;
@@ -864,15 +926,14 @@ select:focus {
   margin-top: auto;
 }
 
-/* Modal Popup */
 .modal-backdrop {
   position: fixed;
   top: 0;
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: rgba(15, 23, 42, 0.6);
-  backdrop-filter: blur(2px);
+  background: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(3px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -893,7 +954,6 @@ select:focus {
   gap: 14px;
 }
 
-/* Print Media Query */
 @media print {
   body * {
     visibility: hidden;
