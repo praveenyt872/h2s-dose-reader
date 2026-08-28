@@ -25,7 +25,7 @@
       </div>
       <button id="headerQrRegisterBtn" class="btn-qr-icon" title="Register New Worker QR">
         <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
-        + Register QR
+        + Register Worker QR
       </button>
     </header>
 
@@ -54,7 +54,7 @@
          ========================================== -->
     <main id="scan-screen" class="screen-view active">
 
-      <!-- STEP 1: MANDATORY LIVE CAMERA QR SCANNER (BIG PROMINENT ACTION) -->
+      <!-- STEP 1: MANDATORY LIVE CAMERA QR SCANNER -->
       <div class="card card-hero-qr">
         <div class="card-title" style="justify-content: space-between;">
           <span style="display: flex; align-items: center; gap: 8px; font-weight: 800;">
@@ -74,15 +74,15 @@
           📷 SCAN WORKER QR CODE (OPEN CAMERA)
         </button>
 
-        <!-- Verified Worker Banner (Hidden until QR scanned) -->
+        <!-- Verified Worker Banner -->
         <div id="verifiedWorkerCard" class="verified-worker-card" style="display: none;">
           <div class="verified-header">
             <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
             WORKER VERIFIED IN DATABASE
           </div>
           <div class="verified-details">
-            <div>Worker ID: <strong id="vWorkerId">WRK-8492</strong></div>
-            <div>Shift Date: <span id="vShiftDate">2026-08-28</span></div>
+            <div>Worker ID: <strong id="vWorkerId">--</strong></div>
+            <div>Shift Date: <span id="vShiftDate">--</span></div>
             <div>Status: <span class="badge-valid-tag valid-yes">DATABASE MATCH</span></div>
           </div>
         </div>
@@ -118,27 +118,27 @@
         </div>
       </div>
 
-      <!-- OPTIONAL: WORKER QR GENERATION & REGISTRATION SECTION -->
+      <!-- WORKER QR REGISTRATION SECTION (MANUAL INPUT) -->
       <div class="card" style="margin-top: auto;">
         <div class="card-title" style="justify-content: space-between;">
-          <span style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem;">
+          <span style="display: flex; align-items: center; gap: 6px; font-size: 0.9rem;">
             <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
-            Register New Worker & Generate QR (Optional)
+            Register Worker & Download QR Code
           </span>
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label for="workerId">Worker ID</label>
-            <input type="text" id="workerId" placeholder="e.g. WRK-8492">
+            <label for="workerId">Worker ID *</label>
+            <input type="text" id="workerId" placeholder="Enter Worker ID (e.g. EMP-101)" required>
           </div>
           <div class="form-group">
-            <label for="shiftDate">Shift Date</label>
-            <input type="date" id="shiftDate">
+            <label for="shiftDate">Shift Date *</label>
+            <input type="date" id="shiftDate" required>
           </div>
         </div>
         <button type="button" id="openQrModalBtn" class="btn btn-secondary" style="margin-top: 4px;">
           <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-          Generate & Register Worker QR Badge
+          Register & Generate Worker QR Code
         </button>
       </div>
     </main>
@@ -209,7 +209,6 @@
          SCREEN 3: DOSE RESULT & AUTOMATIC DATABASE LOGGING
          ========================================== -->
     <section id="result-screen" class="screen-view">
-      <!-- Auto Database Save Confirmation Banner -->
       <div class="auto-save-confirm-banner">
         <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
         <span>💾 Result Automatically Stored in Database under <strong id="savedDbWorkerId">WRK-8492</strong></span>
@@ -334,9 +333,7 @@
     </footer>
   </div>
 
-  <!-- ==========================================
-       LIVE CAMERA QR SCANNER MODAL
-       ========================================== -->
+  <!-- LIVE CAMERA QR SCANNER MODAL -->
   <div id="liveCameraModal" class="modal-backdrop" style="display: none;">
     <div class="modal-content" style="max-width: 480px; text-align: center;">
       <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -349,7 +346,6 @@
 
       <p style="font-size: 0.8rem; color: #64748B;">Align the worker's QR badge inside the camera frame.</p>
 
-      <!-- Video Feed Viewport -->
       <div class="qr-video-viewport">
         <video id="qrVideoFeed" playsinline autoplay></video>
         <div class="qr-scanner-overlay">
@@ -361,7 +357,6 @@
         Searching for QR Code...
       </div>
 
-      <!-- Fallback Image File Upload -->
       <div style="margin-top: 8px;">
         <label for="qrFileInput" class="btn btn-outline" style="width: 100%; font-size: 0.8rem; min-height: 40px;">
           📁 Or Select QR Image File
@@ -371,37 +366,38 @@
     </div>
   </div>
 
-  <!-- ==========================================
-       WORKER QR CODE BADGE MODAL (PRINTABLE)
-       ========================================== -->
+  <!-- WORKER QR CODE DISPLAY & PNG DOWNLOAD MODAL -->
   <div id="qrBadgeModal" class="modal-backdrop" style="display: none;">
-    <div class="modal-content print-badge-container">
+    <div class="modal-content print-badge-container" style="text-align: center;">
       <div class="hazard-bar" style="border-radius: 4px 4px 0 0;"></div>
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-        <h3 style="font-size: 1.1rem; font-weight: 800;">Worker Safety ID Badge</h3>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+        <h3 style="font-size: 1.1rem; font-weight: 800;">Registered Worker QR Code</h3>
         <button type="button" id="closeQrModalBtn" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
       </div>
 
-      <div id="printableBadgeCard" class="printable-badge-card">
-        <div class="badge-header">
-          <span style="font-weight: 900; color: #FFC72C;">SIH DOSIMETER BADGE</span>
-          <span style="font-size: 0.65rem; color: #94A3B8;">REGISTERED IN DATABASE</span>
+      <div id="printableBadgeCard" class="printable-badge-card" style="align-items: center;">
+        <div class="badge-header" style="width: 100%;">
+          <span style="font-weight: 900; color: #FFC72C;">REGISTERED WORKER QR</span>
+          <span style="font-size: 0.65rem; color: #94A3B8;">SAVED TO DATABASE</span>
         </div>
-        <div class="badge-body">
-          <div id="qrcodeDisplay" class="qr-code-box"></div>
-          <div class="badge-details">
-            <div class="badge-worker-id" id="badgeWorkerIdText">WRK-8492</div>
-            <div class="badge-field"><strong>Shift Date:</strong> <span id="badgeShiftDateText">2026-08-28</span></div>
-            <div class="badge-field"><strong>Generated:</strong> <span id="badgeTimestampText">16:30:00</span></div>
-            <div class="badge-field" style="margin-top: 4px; font-size: 0.65rem; color: #64748B;">Scan this QR badge to unlock exposure strip scanning.</div>
-          </div>
+        
+        <!-- Only QR Code Image Box -->
+        <div id="qrcodeDisplay" class="qr-code-box-large"></div>
+
+        <div class="badge-details" style="text-align: center;">
+          <div class="badge-worker-id" id="badgeWorkerIdText">EMP-101</div>
+          <div class="badge-field"><strong>Shift Date:</strong> <span id="badgeShiftDateText">2026-08-28</span></div>
         </div>
       </div>
 
+      <!-- Action Buttons: Download PNG of Only QR Code -->
       <div class="form-row" style="margin-top: 14px;">
-        <button type="button" id="printBadgeBtn" class="btn btn-primary" style="flex: 1;">
-          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
-          Print / Save Badge
+        <button type="button" id="downloadQrPngBtn" class="btn btn-primary" style="flex: 1;">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          📥 Download QR Code (PNG)
+        </button>
+        <button type="button" id="printBadgeBtn" class="btn btn-outline">
+          🖨️ Print Badge
         </button>
       </div>
     </div>

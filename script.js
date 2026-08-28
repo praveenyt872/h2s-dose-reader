@@ -1,6 +1,6 @@
 /**
  * H2S Dose Reader — Core Application Script
- * Mandatory Live Camera QR Gatekeeper & Auto Exposure Database System
+ * Mandatory Live Camera QR Gatekeeper, Manual Worker Registration & Pure QR PNG Exporter
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -60,10 +60,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const qrBadgeModal = document.getElementById('qrBadgeModal');
   const closeQrModalBtn = document.getElementById('closeQrModalBtn');
   const printBadgeBtn = document.getElementById('printBadgeBtn');
+  const downloadQrPngBtn = document.getElementById('downloadQrPngBtn');
   const qrcodeDisplay = document.getElementById('qrcodeDisplay');
   const badgeWorkerIdText = document.getElementById('badgeWorkerIdText');
   const badgeShiftDateText = document.getElementById('badgeShiftDateText');
-  const badgeTimestampText = document.getElementById('badgeTimestampText');
 
   // Readout Cards
   const readoutWhite = document.getElementById('readoutWhite');
@@ -94,15 +94,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const statNormal = document.getElementById('statNormal');
   const statElevatedHigh = document.getElementById('statElevatedHigh');
 
-  // Camera Stream Track Variable
   let activeMediaStream = null;
   let qrScanAnimationFrame = null;
 
-  // Initialize Form Defaults
+  // Initialize Form Defaults (No random worker IDs)
   shiftDateInput.value = state.shiftDate;
-  if (!workerIdInput.value) {
-    workerIdInput.value = 'WRK-' + Math.floor(1000 + Math.random() * 9000);
-  }
+  workerIdInput.value = ''; // Blank for manual input
 
   // ==========================================
   // 2. Navigation & Screen Switching
@@ -205,7 +202,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   closeLiveCameraBtn.addEventListener('click', stopLiveCamera);
 
-  // File Upload Fallback for QR
   qrFileInput.addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -244,23 +240,20 @@ document.addEventListener('DOMContentLoaded', () => {
       if (parsed.workerId) scannedWorkerId = parsed.workerId;
       if (parsed.shiftDate) scannedShiftDate = parsed.shiftDate;
     } catch (e) {
-      // Raw string format
+      // Raw string
     }
 
     stopLiveCamera();
 
-    // Lock verified worker into state
     state.qrVerified = true;
     state.verifiedWorker = { workerId: scannedWorkerId, shiftDate: scannedShiftDate };
     state.workerId = scannedWorkerId;
     state.shiftDate = scannedShiftDate;
 
-    // Update verified UI Card
     vWorkerId.textContent = scannedWorkerId;
     vShiftDate.textContent = scannedShiftDate;
     verifiedWorkerCard.style.display = 'flex';
 
-    // UNLOCK STEP 2: STRIP SCANNER
     stripScanSectionCard.classList.remove('strip-section-locked');
     stripLockStatusTag.textContent = '🔓 UNLOCKED';
     stripLockStatusTag.className = 'badge-valid-tag valid-yes';
@@ -272,14 +265,19 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ==========================================
-  // 4. WORKER QR GENERATION & REGISTRATION
+  // 4. MANUAL WORKER REGISTRATION & PNG DOWNLOAD
   // ==========================================
   function generateAndRegisterWorkerQr() {
-    const workerId = workerIdInput.value.trim() || 'WRK-' + Math.floor(1000 + Math.random() * 9000);
-    const shiftDate = shiftDateInput.value || new Date().toISOString().split('T')[0];
-    const timestamp = new Date().toLocaleTimeString();
+    const workerId = workerIdInput.value.trim();
+    if (!workerId) {
+      alert('Please enter a Worker ID to register (e.g. EMP-101).');
+      workerIdInput.focus();
+      return;
+    }
 
-    // Register Worker into Database
+    const shiftDate = shiftDateInput.value || new Date().toISOString().split('T')[0];
+
+    // Register into Local Database
     const existingIndex = state.dbWorkers.findIndex(w => w.workerId === workerId);
     const workerRecord = {
       workerId,
@@ -297,12 +295,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     badgeWorkerIdText.textContent = workerId;
     badgeShiftDateText.textContent = shiftDate;
-    badgeTimestampText.textContent = timestamp;
 
     const payload = JSON.stringify({
       workerId,
       shiftDate,
-      timestamp,
       app: 'H2S_Dose_Reader'
     });
 
@@ -310,8 +306,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (typeof QRCode !== 'undefined') {
       new QRCode(qrcodeDisplay, {
         text: payload,
-        width: 110,
-        height: 110,
+        width: 200,
+        height: 200,
         colorDark: '#0F172A',
         colorLight: '#FFFFFF',
         correctLevel: QRCode.CorrectLevel.H
@@ -322,8 +318,37 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   openQrModalBtn.addEventListener('click', generateAndRegisterWorkerQr);
-  headerQrRegisterBtn.addEventListener('click', generateAndRegisterWorkerQr);
+  headerQrRegisterBtn.addEventListener('click', () => {
+    switchScreen('scan-screen');
+    workerIdInput.focus();
+  });
   closeQrModalBtn.addEventListener('click', () => qrBadgeModal.style.display = 'none');
+
+  // DOWNLOAD ONLY THE QR CODE AS A PNG FILE
+  downloadQrPngBtn.addEventListener('click', downloadQrCodePng);
+
+  function downloadQrCodePng() {
+    const workerId = badgeWorkerIdText.textContent.trim() || 'Worker';
+    const canvas = qrcodeDisplay.querySelector('canvas');
+    const img = qrcodeDisplay.querySelector('img');
+
+    let dataUrl = '';
+    if (canvas) {
+      dataUrl = canvas.toDataURL('image/png');
+    } else if (img && img.src) {
+      dataUrl = img.src;
+    } else {
+      alert('QR Code image not found.');
+      return;
+    }
+
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = `${workerId}_QRCode.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
 
   printBadgeBtn.addEventListener('click', () => {
     window.print();
@@ -356,8 +381,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   demoSampleBtn.addEventListener('click', () => {
     if (!state.qrVerified) {
-      // Auto verify for quick demo if requested
-      handleSuccessfulQrScan(JSON.stringify({ workerId: 'WRK-DEMO-8492', shiftDate: state.shiftDate }));
+      handleSuccessfulQrScan(JSON.stringify({ workerId: 'EMP-101', shiftDate: state.shiftDate }));
     }
     generateDemoSamplePhoto();
     switchScreen('calibrate-screen');
@@ -660,8 +684,6 @@ document.addEventListener('DOMContentLoaded', () => {
     );
 
     state.latestResult = result;
-
-    // AUTOMATION: STORE PPM DOSE AUTOMATICALLY IN DATABASE UNDER SCANNED WORKER ID
     autoSaveResultToDatabase(result);
 
     displayResult(result);
@@ -693,7 +715,7 @@ document.addEventListener('DOMContentLoaded', () => {
       statusClass = 'status-elevated';
     }
 
-    const workerId = state.verifiedWorker ? state.verifiedWorker.workerId : state.workerId;
+    const workerId = state.verifiedWorker ? state.verifiedWorker.workerId : (state.workerId || 'UNKNOWN');
     const shiftDate = state.verifiedWorker ? state.verifiedWorker.shiftDate : state.shiftDate;
 
     return {

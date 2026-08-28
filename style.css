@@ -146,7 +146,6 @@ body {
   color: #FFFFFF;
 }
 
-/* Nav Tabs */
 .nav-tabs {
   display: flex;
   background-color: var(--color-industrial-slate);
@@ -219,7 +218,6 @@ body {
   gap: 8px;
 }
 
-/* HERO QR CARD (MANDATORY SCANNER) */
 .card-hero-qr {
   background: linear-gradient(180deg, #FFFFFF, #FFFDF0);
   border: 2px solid var(--color-hazard-yellow);
@@ -285,7 +283,6 @@ body {
   color: #065F46;
 }
 
-/* STRIP SCAN LOCKED SECTION */
 .strip-section-locked {
   border-color: #CBD5E1;
   transition: all 0.3s ease;
@@ -861,7 +858,7 @@ select:focus {
   to { border-color: #10B981; }
 }
 
-/* Printable Badge Card */
+/* Printable Badge Card & Large QR Container */
 .printable-badge-card {
   background: #0F172A;
   color: #FFFFFF;
@@ -882,21 +879,22 @@ select:focus {
   padding-bottom: 8px;
 }
 
-.badge-body {
-  display: flex;
-  gap: 14px;
-  align-items: center;
-}
-
-.qr-code-box {
+.qr-code-box-large {
   background: #FFFFFF;
-  padding: 8px;
-  border-radius: 6px;
-  display: flex;
+  padding: 12px;
+  border-radius: 8px;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 110px;
-  min-height: 110px;
+  margin: 8px auto;
+  border: 2px solid var(--color-hazard-yellow);
+}
+
+.qr-code-box-large img,
+.qr-code-box-large canvas {
+  display: block;
+  width: 160px !important;
+  height: 160px !important;
 }
 
 .badge-details {
@@ -906,14 +904,14 @@ select:focus {
 }
 
 .badge-worker-id {
-  font-size: 1.25rem;
+  font-size: 1.35rem;
   font-weight: 900;
   color: var(--color-hazard-yellow);
   letter-spacing: 0.02em;
 }
 
 .badge-field {
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   color: #CBD5E1;
 }
 
