@@ -104,11 +104,11 @@
 
         <div id="stripScanControls" style="display: flex; flex-direction: column; gap: 10px; opacity: 0.4; pointer-events: none;">
           <div class="file-input-wrapper">
-            <button type="button" id="stripScanBtn" class="btn btn-primary" style="width: 100%;">
+            <label for="fileInput" id="stripScanBtn" class="btn btn-primary" style="width: 100%; cursor: pointer;">
               <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
               📸 Capture / Upload Wristband Strip Photo
-            </button>
-            <input type="file" id="fileInput" accept="image/*" capture="environment">
+            </label>
+            <input type="file" id="fileInput" accept="image/*" capture="environment" style="display: none;">
           </div>
 
           <button type="button" id="demoSampleBtn" class="btn btn-outline">

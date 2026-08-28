@@ -23,6 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   // DOM Elements
+  const stripScanBtn = document.getElementById('stripScanBtn');
   const fileInput = document.getElementById('fileInput');
   const demoSampleBtn = document.getElementById('demoSampleBtn');
   const photoCanvas = document.getElementById('photoCanvas');
@@ -401,6 +402,17 @@ document.addEventListener('DOMContentLoaded', () => {
   // ==========================================
   // 5. STEP 2: STRIP SCAN & AUTO DETECTION
   // ==========================================
+  if (stripScanBtn) {
+    stripScanBtn.addEventListener('click', (e) => {
+      if (!state.qrVerified) {
+        e.preventDefault();
+        alert('Mandatory Step: Please scan the Worker QR Code first!');
+        return;
+      }
+      fileInput.click();
+    });
+  }
+
   fileInput.addEventListener('change', (e) => {
     if (!state.qrVerified) {
       alert('Mandatory Step: You must scan the Worker QR Code first!');
