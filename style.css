@@ -1,6 +1,6 @@
 /* ==========================================================================
    H2S Dose Reader — Industrial Safety Aesthetic CSS
-   Mobile-First, Responsive, Client-Side Web Application
+   Mobile-First, Responsive, Client-Side Web Application with RBAC
    ========================================================================== */
 
 :root {
@@ -89,10 +89,12 @@ body {
 .app-header {
   background-color: var(--color-industrial-dark);
   color: #FFFFFF;
-  padding: 16px 20px;
+  padding: 14px 18px;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .brand-title {
@@ -101,7 +103,7 @@ body {
 }
 
 .brand-title h1 {
-  font-size: 1.2rem;
+  font-size: 1.15rem;
   font-weight: 800;
   letter-spacing: -0.02em;
   display: flex;
@@ -120,30 +122,77 @@ body {
 }
 
 .brand-title .subtitle {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   color: var(--color-slate-muted);
   margin-top: 2px;
   font-weight: 500;
 }
 
+/* Role Badges & Actions */
+.role-tag {
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.role-worker {
+  background-color: #3B82F6;
+  color: #FFFFFF;
+}
+
+.role-admin {
+  background-color: #10B981;
+  color: #064E3B;
+  font-weight: 900;
+  animation: pulseGlowAdmin 2s infinite alternate;
+}
+
+@keyframes pulseGlowAdmin {
+  from { box-shadow: 0 0 4px #10B981; }
+  to { box-shadow: 0 0 10px #10B981; }
+}
+
+.btn-role-action {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #FFFFFF;
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s ease;
+}
+
+.btn-role-action:hover {
+  background: rgba(255, 255, 255, 0.22);
+  border-color: var(--color-hazard-yellow);
+}
+
 .btn-qr-icon {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 199, 44, 0.15);
+  border: 1px solid var(--color-hazard-yellow);
   color: var(--color-hazard-yellow);
-  padding: 6px 12px;
+  padding: 5px 10px;
   border-radius: var(--radius-sm);
   font-size: 0.75rem;
   font-weight: 700;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   transition: all 0.2s ease;
 }
 
 .btn-qr-icon:hover {
-  background: rgba(255, 255, 255, 0.2);
-  color: #FFFFFF;
+  background: var(--color-hazard-yellow);
+  color: var(--color-industrial-dark);
 }
 
 .nav-tabs {
@@ -334,6 +383,39 @@ body {
   box-shadow: 0 2px 4px rgba(217, 160, 6, 0.3);
 }
 
+/* Privacy & Admin Banners */
+.privacy-banner-card {
+  background-color: #EFF6FF;
+  border: 1.5px solid #3B82F6;
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  color: #1E40AF;
+}
+
+.admin-banner-card {
+  background-color: #ECFDF5;
+  border: 1.5px solid #10B981;
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  color: #065F46;
+}
+
+.btn-exit-admin {
+  background: #EF4444;
+  color: #FFFFFF;
+  border: none;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.btn-exit-admin:hover {
+  background: #DC2626;
+}
+
 /* Form Inputs */
 .form-group {
   display: flex;
@@ -357,6 +439,7 @@ label {
 
 input[type="text"],
 input[type="number"],
+input[type="password"],
 input[type="date"],
 select {
   padding: 12px;
@@ -372,6 +455,7 @@ select {
 
 input[type="text"]:focus,
 input[type="number"]:focus,
+input[type="password"]:focus,
 input[type="date"]:focus,
 select:focus {
   border-color: var(--color-border-focus);

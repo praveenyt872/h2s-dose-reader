@@ -1,6 +1,6 @@
 /**
  * H2S Dose Reader — Core Application Script
- * High-Resolution Calibration Curve & Dynamic Shift Duration TWA Engine
+ * High-Resolution Calibration Curve, Dynamic Shift Duration TWA Engine & RBAC Privacy Segregation
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -9,7 +9,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // ==========================================
   const state = {
     currentScreen: 'scan-screen',
-    workerId: '',
+    userRole: 'worker', // 'worker' | 'admin'
+    activeWorkerId: 'EMP-101',
+    workerId: 'EMP-101',
     shiftDate: new Date().toISOString().split('T')[0],
     shiftHours: 8.0, // Default shift duration in hours
     qrVerified: false,
@@ -22,6 +24,15 @@ document.addEventListener('DOMContentLoaded', () => {
     dbWorkers: JSON.parse(localStorage.getItem('h2s_worker_db') || '[]'),
     logs: JSON.parse(localStorage.getItem('h2s_dosimeter_logs') || '[]')
   };
+
+  // Header Role & Admin Elements
+  const headerRoleTag = document.getElementById('headerRoleTag');
+  const adminPortalToggleBtn = document.getElementById('adminPortalToggleBtn');
+  const adminLoginModal = document.getElementById('adminLoginModal');
+  const closeAdminModalBtn = document.getElementById('closeAdminModalBtn');
+  const adminPinInput = document.getElementById('adminPinInput');
+  const submitAdminPinBtn = document.getElementById('submitAdminPinBtn');
+  const adminPinErrorMsg = document.getElementById('adminPinErrorMsg');
 
   // Screen 1 DOM Elements
   const shiftHoursInput = document.getElementById('shiftHoursInput');
@@ -97,12 +108,18 @@ document.addEventListener('DOMContentLoaded', () => {
   const techDetailsToggle = document.getElementById('techDetailsToggle');
   const resultCurveChartContainer = document.getElementById('resultCurveChartContainer');
 
-  // Dashboard DOM Elements
+  // Dashboard DOM Elements (Role-Based)
+  const workerPrivacyBanner = document.getElementById('workerPrivacyBanner');
+  const privacyWorkerIdText = document.getElementById('privacyWorkerIdText');
+  const adminMasterBanner = document.getElementById('adminMasterBanner');
+  const exitAdminModeBtn = document.getElementById('exitAdminModeBtn');
   const logSearchInput = document.getElementById('logSearchInput');
   const logTableBody = document.getElementById('logTableBody');
   const exportCsvBtn = document.getElementById('exportCsvBtn');
+  const exportCsvBtnText = document.getElementById('exportCsvBtnText');
   const clearLogBtn = document.getElementById('clearLogBtn');
   const statTotal = document.getElementById('statTotal');
+  const statTotalLabel = document.getElementById('statTotalLabel');
   const statNormal = document.getElementById('statNormal');
   const statElevatedHigh = document.getElementById('statElevatedHigh');
 
@@ -116,8 +133,93 @@ document.addEventListener('DOMContentLoaded', () => {
   shiftHoursInput.value = '8.0';
   if (resultShiftInput) resultShiftInput.value = '8.0';
 
+  updateRoleUI();
+
   // ==========================================
-  // 2. SHIFT DURATION PRESETS & LIVE SYNC
+  // 2. ROLE-BASED ACCESS CONTROL (RBAC) LOGIC
+  // ==========================================
+  function updateRoleUI() {
+    if (state.userRole === 'admin') {
+      headerRoleTag.textContent = '🛡️ Admin Master';
+      headerRoleTag.className = 'role-tag role-admin';
+      adminPortalToggleBtn.textContent = '🚪 Exit Admin';
+      adminPortalToggleBtn.style.background = '#EF4444';
+      adminPortalToggleBtn.style.color = '#FFFFFF';
+
+      if (adminMasterBanner) adminMasterBanner.style.display = 'block';
+      if (workerPrivacyBanner) workerPrivacyBanner.style.display = 'none';
+      if (clearLogBtn) clearLogBtn.style.display = 'inline-flex';
+      if (exportCsvBtnText) exportCsvBtnText.textContent = 'Export Master Company Database (CSV)';
+      if (statTotalLabel) statTotalLabel.textContent = 'Company Shifts';
+    } else {
+      const activeId = state.activeWorkerId || state.workerId || 'EMP-101';
+      headerRoleTag.textContent = `👤 Worker: ${activeId}`;
+      headerRoleTag.className = 'role-tag role-worker';
+      adminPortalToggleBtn.textContent = '🛡️ Admin Portal';
+      adminPortalToggleBtn.style.background = 'rgba(255, 255, 255, 0.12)';
+      adminPortalToggleBtn.style.color = '#FFFFFF';
+
+      if (adminMasterBanner) adminMasterBanner.style.display = 'none';
+      if (workerPrivacyBanner) {
+        workerPrivacyBanner.style.display = 'block';
+        if (privacyWorkerIdText) privacyWorkerIdText.textContent = activeId;
+      }
+      if (clearLogBtn) clearLogBtn.style.display = 'none';
+      if (exportCsvBtnText) exportCsvBtnText.textContent = `Export My Records (${activeId} CSV)`;
+      if (statTotalLabel) statTotalLabel.textContent = 'My Total Shifts';
+    }
+
+    renderDashboard();
+  }
+
+  adminPortalToggleBtn.addEventListener('click', () => {
+    if (state.userRole === 'admin') {
+      // Log out of admin mode
+      state.userRole = 'worker';
+      updateRoleUI();
+      alert('🔒 Switched back to Worker Privacy View.');
+    } else {
+      // Open Admin PIN prompt
+      adminPinInput.value = '';
+      adminPinErrorMsg.style.display = 'none';
+      adminLoginModal.style.display = 'flex';
+      setTimeout(() => adminPinInput.focus(), 150);
+    }
+  });
+
+  if (exitAdminModeBtn) {
+    exitAdminModeBtn.addEventListener('click', () => {
+      state.userRole = 'worker';
+      updateRoleUI();
+      alert('🔒 Switched back to Worker Privacy View.');
+    });
+  }
+
+  closeAdminModalBtn.addEventListener('click', () => {
+    adminLoginModal.style.display = 'none';
+  });
+
+  submitAdminPinBtn.addEventListener('click', handleAdminPinSubmit);
+  adminPinInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') handleAdminPinSubmit();
+  });
+
+  function handleAdminPinSubmit() {
+    const pin = adminPinInput.value.trim();
+    // Default Admin PIN is 'admin123' (or '9999')
+    if (pin === 'admin123' || pin === '9999') {
+      state.userRole = 'admin';
+      adminLoginModal.style.display = 'none';
+      updateRoleUI();
+      alert('🔓 Safety Admin Master Access Granted!\nYou can now view all workers and export the complete compliance database.');
+      switchScreen('dashboard-screen');
+    } else {
+      adminPinErrorMsg.style.display = 'block';
+    }
+  }
+
+  // ==========================================
+  // 3. SHIFT DURATION PRESETS & LIVE SYNC
   // ==========================================
   function syncShiftHoursUI(hours) {
     state.shiftHours = Math.max(0.1, hours);
@@ -215,7 +317,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ==========================================
-  // 3. Navigation & Screen Switching
+  // 4. Navigation & Screen Switching
   // ==========================================
   const navTabs = document.querySelectorAll('.tab-btn');
   const screens = document.querySelectorAll('.screen-view');
@@ -250,7 +352,7 @@ document.addEventListener('DOMContentLoaded', () => {
   window.switchScreen = switchScreen;
 
   // ==========================================
-  // 4. STEP 1: MANDATORY LIVE CAMERA QR SCANNER
+  // 5. STEP 1: MANDATORY LIVE CAMERA QR SCANNER
   // ==========================================
   startLiveQrCameraBtn.addEventListener('click', startLiveCameraScan);
 
@@ -363,8 +465,11 @@ document.addEventListener('DOMContentLoaded', () => {
     state.qrVerified = true;
     state.verifiedWorker = { workerId: scannedWorkerId, shiftDate: scannedShiftDate, shiftHours: scannedShiftHours };
     state.workerId = scannedWorkerId;
+    state.activeWorkerId = scannedWorkerId;
     state.shiftDate = scannedShiftDate;
+    
     syncShiftHoursUI(scannedShiftHours);
+    updateRoleUI();
 
     vWorkerId.textContent = scannedWorkerId;
     vShiftDate.textContent = scannedShiftDate;
@@ -377,11 +482,11 @@ document.addEventListener('DOMContentLoaded', () => {
     stripScanControls.style.opacity = '1';
     stripScanControls.style.pointerEvents = 'auto';
 
-    alert(`✅ QR VERIFIED! Worker ${scannedWorkerId} identified.\nShift Duration: ${scannedShiftHours} hours.\n\nStep 2 (Strip Scan) is now UNLOCKED.`);
+    alert(`✅ QR VERIFIED! Loaded profile for ${scannedWorkerId}.\nShift: ${scannedShiftHours} hrs.\n\nStep 2 (Strip Scan) is now UNLOCKED.`);
   }
 
   // ==========================================
-  // 5. WORKER QR REGISTRATION & PNG EXPORTER MODAL
+  // 6. WORKER QR REGISTRATION & PNG EXPORTER MODAL
   // ==========================================
   function generateAndRegisterWorkerQr() {
     let workerId = modalWorkerIdInput.value.trim() || 'EMP-101';
@@ -524,13 +629,13 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // ==========================================
-  // 6. STEP 2: STRIP SCAN & AUTO DETECTION
+  // 7. STEP 2: STRIP SCAN & AUTO DETECTION
   // ==========================================
   if (stripScanBtn) {
     stripScanBtn.addEventListener('click', (e) => {
       if (!state.qrVerified) {
         e.preventDefault();
-        alert('Mandatory Step: Please scan the Worker QR Code first!');
+        alert('Mandatory Step: Please scan your Worker QR Code first!');
         return;
       }
       fileInput.click();
@@ -539,7 +644,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   fileInput.addEventListener('change', (e) => {
     if (!state.qrVerified) {
-      alert('Mandatory Step: You must scan the Worker QR Code first!');
+      alert('Mandatory Step: You must scan your Worker QR Code first!');
       return;
     }
 
@@ -636,7 +741,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ==========================================
-  // 7. AUTO-DETECTION ALGORITHM
+  // 8. AUTO-DETECTION ALGORITHM
   // ==========================================
   autoDetectBtn.addEventListener('click', autoDetectPatches);
 
@@ -701,7 +806,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ==========================================
-  // 8. TAP-POINT MANUAL CALIBRATION LOGIC
+  // 9. TAP-POINT MANUAL CALIBRATION LOGIC
   // ==========================================
   function resetPinState() {
     state.tapState = 0;
@@ -852,12 +957,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ==========================================
-  // 9. CORE DOSE COMPUTATION & HIGH-RES CALIBRATION
+  // 10. CORE DOSE COMPUTATION & HIGH-RES CALIBRATION
   // ==========================================
   computeDoseBtn.addEventListener('click', () => {
     if (state.tapState < 3) return;
 
-    // Always fetch latest shift hours from input
     const currentHours = parseFloat(shiftHoursInput?.value) || parseFloat(resultShiftInput?.value) || state.shiftHours || 8.0;
     state.shiftHours = currentHours;
 
@@ -973,7 +1077,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ==========================================
-  // 10. DISPLAY RESULT & CONTINUOUS CURVE CHART
+  // 11. DISPLAY RESULT & CONTINUOUS CURVE CHART
   // ==========================================
   function displayResult(res) {
     resultDoseVal.textContent = res.dose;
@@ -1029,18 +1133,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const svgHtml = `
       <svg class="curve-chart-svg" viewBox="0 0 ${svgWidth} ${svgHeight}">
-        <!-- Axes -->
         <line x1="${pad}" y1="${svgHeight - pad}" x2="${svgWidth - 10}" y2="${svgHeight - pad}" stroke="#CBD5E1" stroke-width="2"/>
         <line x1="${pad}" y1="10" x2="${pad}" y2="${svgHeight - pad}" stroke="#CBD5E1" stroke-width="2"/>
         
-        <!-- Axis Labels -->
         <text x="${svgWidth / 2}" y="${svgHeight - 5}" font-size="10" fill="#64748B" font-weight="700" text-anchor="middle">Darkness Index (0.0 - 255.0)</text>
         <text x="10" y="${svgHeight / 2}" font-size="10" fill="#64748B" font-weight="700" text-anchor="middle" transform="rotate(-90 10 ${svgHeight / 2})">Dose (ppm·hr)</text>
 
-        <!-- Smooth High-Res Polyline -->
         <polyline points="${pointsSvg.join(' ')}" fill="none" stroke="#2563EB" stroke-width="3" stroke-linecap="round"/>
 
-        <!-- Active Measurement Marker -->
         <circle cx="${activeX}" cy="${activeY}" r="8" fill="#FFC72C" stroke="#0F172A" stroke-width="3"/>
         <circle cx="${activeX}" cy="${activeY}" r="14" fill="#FFC72C" opacity="0.35"/>
         <text x="${activeX + 10}" y="${activeY - 5}" font-size="11" font-weight="800" fill="#0F172A">${activeDose.toFixed(1)} ppm·hr (${(activeDose / state.shiftHours).toFixed(2)} ppm TWA)</text>
@@ -1078,30 +1178,49 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // ==========================================
-  // 11. DASHBOARD & DATABASE LOG OPERATIONS
+  // 12. ROLE-BASED DASHBOARD & COMPLIANCE LOG OPERATIONS
   // ==========================================
   function renderDashboard() {
     const query = (logSearchInput.value || '').toLowerCase().trim();
-    const filteredLogs = state.logs.filter(log => log.workerId.toLowerCase().includes(query));
+    const activeId = state.activeWorkerId || state.workerId || 'EMP-101';
 
-    statTotal.textContent = state.logs.length;
-    statNormal.textContent = state.logs.filter(l => l.status.includes('Normal')).length;
-    statElevatedHigh.textContent = state.logs.filter(l => !l.status.includes('Normal')).length;
+    let roleFilteredLogs = [];
+    if (state.userRole === 'admin') {
+      // Admin sees entire company dataset
+      roleFilteredLogs = state.logs.filter(log => {
+        return log.workerId.toLowerCase().includes(query) || (log.shiftDate && log.shiftDate.includes(query));
+      });
+      statTotal.textContent = state.logs.length;
+      statNormal.textContent = state.logs.filter(l => l.status.includes('Normal')).length;
+      statElevatedHigh.textContent = state.logs.filter(l => !l.status.includes('Normal')).length;
+    } else {
+      // Worker strictly sees ONLY their own records
+      const myLogs = state.logs.filter(log => log.workerId.toUpperCase() === activeId.toUpperCase());
+      roleFilteredLogs = myLogs.filter(log => {
+        return (log.shiftDate && log.shiftDate.includes(query)) || (log.scannedAt && log.scannedAt.toLowerCase().includes(query));
+      });
+      statTotal.textContent = myLogs.length;
+      statNormal.textContent = myLogs.filter(l => l.status.includes('Normal')).length;
+      statElevatedHigh.textContent = myLogs.filter(l => !l.status.includes('Normal')).length;
+    }
 
     logTableBody.innerHTML = '';
 
-    if (filteredLogs.length === 0) {
+    if (roleFilteredLogs.length === 0) {
       logTableBody.innerHTML = `
         <tr>
           <td colspan="8" class="empty-log-state">
-            ${query ? 'No matching database records found for Worker ID.' : 'No compliance logs in database yet.'}
+            ${state.userRole === 'admin' 
+              ? (query ? 'No matching company database records found.' : 'No compliance records in database yet.')
+              : `🔒 No exposure records found yet for Worker ID: <strong>${activeId}</strong>.<br><span style="font-size:0.75rem; color:#64748B;">Complete a strip scan to log your first shift.</span>`
+            }
           </td>
         </tr>
       `;
       return;
     }
 
-    filteredLogs.forEach(log => {
+    roleFilteredLogs.forEach(log => {
       const tr = document.createElement('tr');
       const hoursDisplay = log.shiftHours ? `${parseFloat(log.shiftHours).toFixed(1)}h` : '8.0h';
       const twaDisplay = log.twaPpm ? `${log.twaPpm} ppm` : `${(parseFloat(log.dose) / (log.shiftHours || 8)).toFixed(2)} ppm`;
@@ -1123,15 +1242,27 @@ document.addEventListener('DOMContentLoaded', () => {
   logSearchInput.addEventListener('input', renderDashboard);
 
   exportCsvBtn.addEventListener('click', () => {
-    if (state.logs.length === 0) {
-      alert('No database logs available to export.');
+    const activeId = state.activeWorkerId || state.workerId || 'EMP-101';
+    let logsToExport = [];
+    let filename = '';
+
+    if (state.userRole === 'admin') {
+      logsToExport = state.logs;
+      filename = `h2s_master_company_database_${new Date().toISOString().split('T')[0]}.csv`;
+    } else {
+      logsToExport = state.logs.filter(l => l.workerId.toUpperCase() === activeId.toUpperCase());
+      filename = `h2s_exposure_history_${activeId}_${new Date().toISOString().split('T')[0]}.csv`;
+    }
+
+    if (logsToExport.length === 0) {
+      alert(state.userRole === 'admin' ? 'No company records available to export.' : `No personal records found for ${activeId} to export.`);
       return;
     }
 
     const headers = ['Worker ID', 'Shift Date', 'Shift Duration (hrs)', 'Cumulative Dose (ppm·hr)', 'TWA Concentration (ppm)', 'Status', 'QR Verified', 'Scanned At'];
     const csvRows = [headers.join(',')];
 
-    state.logs.forEach(log => {
+    logsToExport.forEach(log => {
       const hours = log.shiftHours || 8.0;
       const twa = log.twaPpm || (parseFloat(log.dose) / hours).toFixed(2);
 
@@ -1154,7 +1285,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const a = document.createElement('a');
     a.href = url;
-    a.download = `h2s_dosimeter_database_${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -1162,9 +1293,14 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   clearLogBtn.addEventListener('click', () => {
+    if (state.userRole !== 'admin') {
+      alert('Unauthorized action: Only Safety Admins can clear the database.');
+      return;
+    }
+
     if (state.logs.length === 0) return;
 
-    if (confirm('Are you sure you want to clear the Database logs? This action cannot be undone.')) {
+    if (confirm('⚠️ ADMIN ACTION: Are you sure you want to permanently clear the ENTIRE company database? This cannot be undone.')) {
       state.logs = [];
       localStorage.removeItem('h2s_dosimeter_logs');
       renderDashboard();
