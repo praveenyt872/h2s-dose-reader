@@ -1,6 +1,6 @@
 /**
- * H2S Dose Reader — Core Application Script
- * High-Resolution Calibration Curve, Dynamic Shift Duration TWA Engine & RBAC Privacy Segregation
+ * H2S Dose Reader — Production Minimalist Engine
+ * High-Resolution Calibration, Dynamic Shift TWA & Role-Based Access Control
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
     activeWorkerId: 'EMP-101',
     workerId: 'EMP-101',
     shiftDate: new Date().toISOString().split('T')[0],
-    shiftHours: 8.0, // Default shift duration in hours
+    shiftHours: 8.0,
     qrVerified: false,
     verifiedWorker: null,
     loadedImage: null,
@@ -25,10 +25,10 @@ document.addEventListener('DOMContentLoaded', () => {
     logs: JSON.parse(localStorage.getItem('h2s_dosimeter_logs') || '[]')
   };
 
-  // Header Role & Admin Elements
+  // Header Elements
   const headerRoleTag = document.getElementById('headerRoleTag');
+  const headerRoleText = document.getElementById('headerRoleText');
   const adminPortalToggleBtn = document.getElementById('adminPortalToggleBtn');
-  const dashboardAdminUnlockBtn = document.getElementById('dashboardAdminUnlockBtn');
   const adminLoginModal = document.getElementById('adminLoginModal');
   const closeAdminModalBtn = document.getElementById('closeAdminModalBtn');
   const adminPinInput = document.getElementById('adminPinInput');
@@ -37,14 +37,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const adminPinErrorMsg = document.getElementById('adminPinErrorMsg');
 
   // Screen 1 DOM Elements
+  const displayWorkerName = document.getElementById('displayWorkerName');
+  const displayWorkerSub = document.getElementById('displayWorkerSub');
+  const workerAvatarCircle = document.getElementById('workerAvatarCircle');
+  const stripLockStatusTag = document.getElementById('stripLockStatusTag');
+  const stripScanControls = document.getElementById('stripScanControls');
+  const stripDropzoneText = document.getElementById('stripDropzoneText');
+
   const shiftHoursInput = document.getElementById('shiftHoursInput');
   const shiftPresetBtns = document.querySelectorAll('.shift-preset-btn:not(.result-shift-btn)');
 
-  // Screen 3 DOM Elements
-  const resultShiftInput = document.getElementById('resultShiftInput');
-  const resultShiftBtns = document.querySelectorAll('.result-shift-btn');
-
-  const stripScanBtn = document.getElementById('stripScanBtn');
   const fileInput = document.getElementById('fileInput');
   const demoSampleBtn = document.getElementById('demoSampleBtn');
   const photoCanvas = document.getElementById('photoCanvas');
@@ -53,11 +55,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const resetPinsBtn = document.getElementById('resetPinsBtn');
   const computeDoseBtn = document.getElementById('computeDoseBtn');
   const autoDetectBtn = document.getElementById('autoDetectBtn');
-  const autoDetectBanner = document.getElementById('autoDetectBanner');
   const stepInstruction = document.getElementById('stepInstruction');
-  const stepBadge = document.getElementById('stepBadge');
 
-  // Mandatory QR Gatekeeper DOM Elements
+  // QR Modal & Camera Elements
   const startLiveQrCameraBtn = document.getElementById('startLiveQrCameraBtn');
   const liveCameraModal = document.getElementById('liveCameraModal');
   const closeLiveCameraBtn = document.getElementById('closeLiveCameraBtn');
@@ -65,20 +65,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const qrScanStatusMsg = document.getElementById('qrScanStatusMsg');
   const qrFileInput = document.getElementById('qrFileInput');
 
-  const verifiedWorkerCard = document.getElementById('verifiedWorkerCard');
-  const vWorkerId = document.getElementById('vWorkerId');
-  const vShiftDate = document.getElementById('vShiftDate');
-
-  const stripScanSectionCard = document.getElementById('stripScanSectionCard');
-  const stripLockStatusTag = document.getElementById('stripLockStatusTag');
-  const stripLockNotice = document.getElementById('stripLockNotice');
-  const stripScanControls = document.getElementById('stripScanControls');
-
-  // QR Badge Modal Elements
   const headerQrRegisterBtn = document.getElementById('headerQrRegisterBtn');
   const qrBadgeModal = document.getElementById('qrBadgeModal');
   const closeQrModalBtn = document.getElementById('closeQrModalBtn');
-  const printBadgeBtn = document.getElementById('printBadgeBtn');
   const downloadQrPngBtn = document.getElementById('downloadQrPngBtn');
   const qrcodeDisplay = document.getElementById('qrcodeDisplay');
   const badgeWorkerIdText = document.getElementById('badgeWorkerIdText');
@@ -88,29 +77,25 @@ document.addEventListener('DOMContentLoaded', () => {
   const modalShiftDateInput = document.getElementById('modalShiftDateInput');
   const modalShiftHoursInput = document.getElementById('modalShiftHoursInput');
 
-  // Readout Cards
+  // Readouts & Result Elements
   const readoutWhite = document.getElementById('readoutWhite');
   const readoutGrey = document.getElementById('readoutGrey');
   const readoutStrip = document.getElementById('readoutStrip');
 
-  // Result DOM Elements
   const resultDoseVal = document.getElementById('resultDoseVal');
   const resultTwaVal = document.getElementById('resultTwaVal');
   const resultShiftHoursLabel = document.getElementById('resultShiftHoursLabel');
   const resultStatusBadge = document.getElementById('resultStatusBadge');
-  const savedDbWorkerId = document.getElementById('savedDbWorkerId');
+  const resultShiftInput = document.getElementById('resultShiftInput');
+  const resultShiftBtns = document.querySelectorAll('.result-shift-btn');
+
   const rawSwatch = document.getElementById('rawSwatch');
   const correctedSwatch = document.getElementById('correctedSwatch');
   const rawRgbText = document.getElementById('rawRgbText');
   const correctedRgbText = document.getElementById('correctedRgbText');
-  const expiryToggle = document.getElementById('expiryToggle');
-  const expiredBanner = document.getElementById('expiredBanner');
-  const resultDoseCard = document.getElementById('resultDoseCard');
-  const techDetailsBox = document.getElementById('techDetailsBox');
-  const techDetailsToggle = document.getElementById('techDetailsToggle');
   const resultCurveChartContainer = document.getElementById('resultCurveChartContainer');
 
-  // Dashboard DOM Elements (Role-Based)
+  // Screen 4 Elements
   const workerPrivacyBanner = document.getElementById('workerPrivacyBanner');
   const privacyWorkerIdText = document.getElementById('privacyWorkerIdText');
   const adminMasterBanner = document.getElementById('adminMasterBanner');
@@ -128,11 +113,9 @@ document.addEventListener('DOMContentLoaded', () => {
   let activeMediaStream = null;
   let qrScanAnimationFrame = null;
 
-  // Initialize Defaults
-  modalShiftDateInput.value = state.shiftDate;
-  modalWorkerIdInput.value = 'EMP-101';
-  modalShiftHoursInput.value = '8.0';
-  shiftHoursInput.value = '8.0';
+  // Defaults
+  if (modalShiftDateInput) modalShiftDateInput.value = state.shiftDate;
+  if (shiftHoursInput) shiftHoursInput.value = '8.0';
   if (resultShiftInput) resultShiftInput.value = '8.0';
 
   updateRoleUI();
@@ -143,53 +126,47 @@ document.addEventListener('DOMContentLoaded', () => {
   function updateRoleUI() {
     if (state.userRole === 'admin') {
       if (headerRoleTag) {
-        headerRoleTag.textContent = '🛡️ Admin Master';
         headerRoleTag.className = 'role-tag role-admin';
+        if (headerRoleText) headerRoleText.textContent = 'Admin';
       }
       if (adminPortalToggleBtn) {
-        adminPortalToggleBtn.textContent = '🚪 Exit Admin';
-        adminPortalToggleBtn.style.background = '#EF4444';
-        adminPortalToggleBtn.style.color = '#FFFFFF';
+        adminPortalToggleBtn.textContent = '🚪 Exit';
+        adminPortalToggleBtn.style.color = '#DC2626';
       }
-
-      if (adminMasterBanner) adminMasterBanner.style.display = 'block';
+      if (adminMasterBanner) adminMasterBanner.style.display = 'flex';
       if (workerPrivacyBanner) workerPrivacyBanner.style.display = 'none';
       if (clearLogBtn) clearLogBtn.style.display = 'inline-flex';
-      if (exportCsvBtnText) exportCsvBtnText.textContent = 'Export Master Company Database (CSV)';
-      if (statTotalLabel) statTotalLabel.textContent = 'Company Shifts';
+      if (exportCsvBtnText) exportCsvBtnText.textContent = 'Export Master CSV';
+      if (statTotalLabel) statTotalLabel.textContent = 'All Shifts';
     } else {
       const activeId = state.activeWorkerId || state.workerId || 'EMP-101';
       if (headerRoleTag) {
-        headerRoleTag.textContent = `👤 Worker: ${activeId}`;
         headerRoleTag.className = 'role-tag role-worker';
+        if (headerRoleText) headerRoleText.textContent = activeId;
       }
       if (adminPortalToggleBtn) {
-        adminPortalToggleBtn.textContent = '🛡️ Admin Portal';
-        adminPortalToggleBtn.style.background = 'rgba(255, 255, 255, 0.12)';
-        adminPortalToggleBtn.style.color = '#FFFFFF';
+        adminPortalToggleBtn.textContent = '🛡️ Admin';
+        adminPortalToggleBtn.style.color = '';
       }
-
       if (adminMasterBanner) adminMasterBanner.style.display = 'none';
       if (workerPrivacyBanner) {
-        workerPrivacyBanner.style.display = 'block';
+        workerPrivacyBanner.style.display = 'flex';
         if (privacyWorkerIdText) privacyWorkerIdText.textContent = activeId;
       }
       if (clearLogBtn) clearLogBtn.style.display = 'none';
-      if (exportCsvBtnText) exportCsvBtnText.textContent = `Export My Records (${activeId} CSV)`;
-      if (statTotalLabel) statTotalLabel.textContent = 'My Total Shifts';
+      if (exportCsvBtnText) exportCsvBtnText.textContent = `Export (${activeId} CSV)`;
+      if (statTotalLabel) statTotalLabel.textContent = 'My Shifts';
     }
 
     renderDashboard();
   }
 
-  // Global Function Bindings
+  // Global Window Helper Functions
   window.openAdminLoginModal = function() {
     if (adminPinInput) adminPinInput.value = '';
     if (adminPinErrorMsg) adminPinErrorMsg.style.display = 'none';
     if (adminLoginModal) adminLoginModal.style.display = 'flex';
-    setTimeout(() => {
-      if (adminPinInput) adminPinInput.focus();
-    }, 100);
+    setTimeout(() => { if (adminPinInput) adminPinInput.focus(); }, 100);
   };
 
   window.closeAdminModal = function() {
@@ -206,7 +183,6 @@ document.addEventListener('DOMContentLoaded', () => {
   window.exitAdminMode = function() {
     state.userRole = 'worker';
     updateRoleUI();
-    alert('🔒 Switched back to Worker Privacy View.');
   };
 
   window.handleAdminHeaderBtnClick = function() {
@@ -227,7 +203,6 @@ document.addEventListener('DOMContentLoaded', () => {
       state.userRole = 'admin';
       if (adminLoginModal) adminLoginModal.style.display = 'none';
       updateRoleUI();
-      alert('🔓 Safety Admin Master Access Granted!\nYou can now view all workers and export the complete compliance database.');
       switchScreen('dashboard-screen');
     } else {
       if (adminPinErrorMsg) adminPinErrorMsg.style.display = 'block';
@@ -236,9 +211,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (adminLoginModal) {
     adminLoginModal.addEventListener('click', (e) => {
-      if (e.target === adminLoginModal) {
-        adminLoginModal.style.display = 'none';
-      }
+      if (e.target === adminLoginModal) adminLoginModal.style.display = 'none';
     });
   }
 
@@ -259,19 +232,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (resultShiftInput) resultShiftInput.value = hoursStr;
 
     shiftPresetBtns.forEach(btn => {
-      if (parseFloat(btn.dataset.hours) === state.shiftHours) {
-        btn.classList.add('active');
-      } else {
-        btn.classList.remove('active');
-      }
+      btn.classList.toggle('active', parseFloat(btn.dataset.hours) === state.shiftHours);
     });
 
     resultShiftBtns.forEach(btn => {
-      if (parseFloat(btn.dataset.hours) === state.shiftHours) {
-        btn.classList.add('active');
-      } else {
-        btn.classList.remove('active');
-      }
+      btn.classList.toggle('active', parseFloat(btn.dataset.hours) === state.shiftHours);
     });
 
     if (state.latestResult) {
@@ -296,18 +261,14 @@ document.addEventListener('DOMContentLoaded', () => {
   if (shiftHoursInput) {
     shiftHoursInput.addEventListener('input', (e) => {
       const val = parseFloat(e.target.value);
-      if (!isNaN(val) && val > 0) {
-        syncShiftHoursUI(val);
-      }
+      if (!isNaN(val) && val > 0) syncShiftHoursUI(val);
     });
   }
 
   if (resultShiftInput) {
     resultShiftInput.addEventListener('input', (e) => {
       const val = parseFloat(e.target.value);
-      if (!isNaN(val) && val > 0) {
-        syncShiftHoursUI(val);
-      }
+      if (!isNaN(val) && val > 0) syncShiftHoursUI(val);
     });
   }
 
@@ -320,7 +281,7 @@ document.addEventListener('DOMContentLoaded', () => {
     state.latestResult.twaPpm = twaPpm.toFixed(2);
     state.latestResult.twaNum = twaPpm;
 
-    let status = 'Normal';
+    let status = 'Normal Exposure';
     let statusClass = 'status-normal';
 
     if (dose >= DOSE_THRESHOLD_HIGH || twaPpm >= TWA_THRESHOLD_HIGH) {
@@ -372,7 +333,7 @@ document.addEventListener('DOMContentLoaded', () => {
     tab.addEventListener('click', () => {
       const targetScreen = tab.dataset.screen;
       if ((targetScreen === 'calibrate-screen' || targetScreen === 'result-screen') && (!state.qrVerified || !state.loadedImage)) {
-        alert('Mandatory Step: Please scan the Worker QR Code first to unlock strip scanning.');
+        alert('Please scan Worker QR first to unlock strip scanning.');
         return;
       }
       switchScreen(targetScreen);
@@ -382,15 +343,15 @@ document.addEventListener('DOMContentLoaded', () => {
   window.switchScreen = switchScreen;
 
   // ==========================================
-  // 5. STEP 1: MANDATORY LIVE CAMERA QR SCANNER
+  // 5. LIVE QR CAMERA SCANNER
   // ==========================================
   if (startLiveQrCameraBtn) {
     startLiveQrCameraBtn.addEventListener('click', startLiveCameraScan);
   }
 
   function startLiveCameraScan() {
-    liveCameraModal.style.display = 'flex';
-    qrScanStatusMsg.textContent = 'Initializing Camera...';
+    if (liveCameraModal) liveCameraModal.style.display = 'flex';
+    if (qrScanStatusMsg) qrScanStatusMsg.textContent = 'Initializing Camera...';
 
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
       navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
@@ -399,22 +360,22 @@ document.addEventListener('DOMContentLoaded', () => {
           qrVideoFeed.srcObject = stream;
           qrVideoFeed.setAttribute('playsinline', true);
           qrVideoFeed.play();
-          qrScanStatusMsg.textContent = 'Align Worker QR Code inside frame...';
+          if (qrScanStatusMsg) qrScanStatusMsg.textContent = 'Align QR badge inside box...';
           requestAnimationFrame(scanVideoFrame);
         })
         .catch((err) => {
-          console.warn('Camera stream failed, fallback to file upload:', err);
-          qrScanStatusMsg.textContent = 'Camera unavailable. Please select QR image file below.';
+          console.warn('Camera failed, fallback:', err);
+          if (qrScanStatusMsg) qrScanStatusMsg.textContent = 'Camera unavailable. Please upload QR image.';
         });
     } else {
-      qrScanStatusMsg.textContent = 'Camera API not supported. Select QR image below.';
+      if (qrScanStatusMsg) qrScanStatusMsg.textContent = 'Camera not supported. Upload image below.';
     }
   }
 
   function scanVideoFrame() {
     if (!activeMediaStream) return;
 
-    if (qrVideoFeed.readyState === qrVideoFeed.HAVE_ENOUGH_DATA) {
+    if (qrVideoFeed && qrVideoFeed.readyState === qrVideoFeed.HAVE_ENOUGH_DATA) {
       const tempCanvas = document.createElement('canvas');
       tempCanvas.width = qrVideoFeed.videoWidth;
       tempCanvas.height = qrVideoFeed.videoHeight;
@@ -444,7 +405,7 @@ document.addEventListener('DOMContentLoaded', () => {
       cancelAnimationFrame(qrScanAnimationFrame);
       qrScanAnimationFrame = null;
     }
-    liveCameraModal.style.display = 'none';
+    if (liveCameraModal) liveCameraModal.style.display = 'none';
   }
 
   if (closeLiveCameraBtn) {
@@ -474,7 +435,7 @@ document.addEventListener('DOMContentLoaded', () => {
               return;
             }
           }
-          alert('No valid QR code found in selected image.');
+          alert('No QR code detected in image.');
         };
         img.src = event.target.result;
       };
@@ -507,26 +468,25 @@ document.addEventListener('DOMContentLoaded', () => {
     syncShiftHoursUI(scannedShiftHours);
     updateRoleUI();
 
-    if (vWorkerId) vWorkerId.textContent = scannedWorkerId;
-    if (vShiftDate) vShiftDate.textContent = scannedShiftDate;
-    if (verifiedWorkerCard) verifiedWorkerCard.style.display = 'flex';
-
-    if (stripScanSectionCard) stripScanSectionCard.classList.remove('strip-section-locked');
+    if (displayWorkerName) displayWorkerName.textContent = scannedWorkerId;
+    if (displayWorkerSub) displayWorkerSub.textContent = `Shift: ${scannedShiftDate} (${scannedShiftHours}h)`;
+    if (workerAvatarCircle) {
+      workerAvatarCircle.textContent = '✓';
+      workerAvatarCircle.className = 'avatar-circle verified';
+    }
     if (stripLockStatusTag) {
-      stripLockStatusTag.textContent = '🔓 UNLOCKED';
-      stripLockStatusTag.className = 'badge-valid-tag valid-yes';
-    }
-    if (stripLockNotice) stripLockNotice.style.display = 'none';
-    if (stripScanControls) {
-      stripScanControls.style.opacity = '1';
-      stripScanControls.style.pointerEvents = 'auto';
+      stripLockStatusTag.textContent = 'Verified';
+      stripLockStatusTag.className = 'role-tag role-admin';
     }
 
-    alert(`✅ QR VERIFIED! Loaded profile for ${scannedWorkerId}.\nShift: ${scannedShiftHours} hrs.\n\nStep 2 (Strip Scan) is now UNLOCKED.`);
+    if (stripScanControls) {
+      stripScanControls.classList.remove('locked');
+      if (stripDropzoneText) stripDropzoneText.textContent = '📸 Tap to capture or upload wristband strip photo';
+    }
   }
 
   // ==========================================
-  // 6. WORKER QR REGISTRATION & PNG EXPORTER MODAL
+  // 6. WORKER QR REGISTRATION MODAL
   // ==========================================
   function generateAndRegisterWorkerQr() {
     let workerId = (modalWorkerIdInput ? modalWorkerIdInput.value.trim() : '') || 'EMP-101';
@@ -548,7 +508,7 @@ document.addEventListener('DOMContentLoaded', () => {
       shiftDate,
       shiftHours,
       registeredAt: new Date().toLocaleString(),
-      status: 'Registered / Awaiting Scan'
+      status: 'Active'
     };
 
     if (existingIndex >= 0) {
@@ -574,8 +534,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (typeof QRCode !== 'undefined') {
         new QRCode(qrcodeDisplay, {
           text: payload,
-          width: 200,
-          height: 200,
+          width: 160,
+          height: 160,
           colorDark: '#0F172A',
           colorLight: '#FFFFFF',
           correctLevel: QRCode.CorrectLevel.H
@@ -593,32 +553,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  if (modalShiftDateInput) {
-    modalShiftDateInput.addEventListener('change', (e) => {
-      const currentWorkerId = modalWorkerIdInput ? modalWorkerIdInput.value.trim() : 'EMP-101';
-      const newShiftDate = e.target.value || state.shiftDate;
-      const currentShiftHours = parseFloat(modalShiftHoursInput ? modalShiftHoursInput.value : 8.0) || 8.0;
-      renderQrModalCode(currentWorkerId, newShiftDate, currentShiftHours);
-    });
-  }
-
-  if (modalShiftHoursInput) {
-    modalShiftHoursInput.addEventListener('input', (e) => {
-      const currentWorkerId = modalWorkerIdInput ? modalWorkerIdInput.value.trim() : 'EMP-101';
-      const currentShiftDate = modalShiftDateInput ? modalShiftDateInput.value : state.shiftDate;
-      const newShiftHours = parseFloat(e.target.value) || 8.0;
-      renderQrModalCode(currentWorkerId, currentShiftDate, newShiftHours);
-    });
-  }
-
-  if (headerQrRegisterBtn) {
-    headerQrRegisterBtn.addEventListener('click', generateAndRegisterWorkerQr);
-  }
   if (closeQrModalBtn) {
     closeQrModalBtn.addEventListener('click', () => { if (qrBadgeModal) qrBadgeModal.style.display = 'none'; });
   }
 
-  // DOWNLOAD EXACT REFERENCE SCANNABLE QR CODE
   if (downloadQrPngBtn) {
     downloadQrPngBtn.addEventListener('click', downloadQrCodePng);
   }
@@ -629,69 +567,32 @@ document.addEventListener('DOMContentLoaded', () => {
     const qrImg = qrcodeDisplay ? qrcodeDisplay.querySelector('img') : null;
 
     const sourceEl = qrCanvas || qrImg;
-    if (!sourceEl) {
-      alert('QR Code image not generated yet.');
-      return;
-    }
+    if (!sourceEl) return;
 
     const exportCanvas = document.createElement('canvas');
-    exportCanvas.width = 400;
-    exportCanvas.height = 400;
+    exportCanvas.width = 300;
+    exportCanvas.height = 300;
     const eCtx = exportCanvas.getContext('2d');
 
-    const pad = 10;
-    const radius = 24;
-    const boxWidth = 400 - pad * 2;
-    const boxHeight = 400 - pad * 2;
-
-    eCtx.beginPath();
-    if (typeof eCtx.roundRect === 'function') {
-      eCtx.roundRect(pad, pad, boxWidth, boxHeight, radius);
-    } else {
-      eCtx.moveTo(pad + radius, pad);
-      eCtx.arcTo(pad + boxWidth, pad, pad + boxWidth, pad + boxHeight, radius);
-      eCtx.arcTo(pad + boxWidth, pad + boxHeight, pad, pad + boxHeight, radius);
-      eCtx.arcTo(pad, pad + boxHeight, pad, pad, radius);
-      eCtx.arcTo(pad, pad, pad + boxWidth, pad, radius);
-      eCtx.closePath();
-    }
-
     eCtx.fillStyle = '#FFFFFF';
-    eCtx.fill();
+    eCtx.fillRect(0, 0, 300, 300);
+    eCtx.drawImage(sourceEl, 25, 25, 250, 250);
 
-    eCtx.lineWidth = 5;
-    eCtx.strokeStyle = '#FFC72C';
-    eCtx.stroke();
-
-    const qrSize = 310;
-    const qrX = (400 - qrSize) / 2;
-    const qrY = (400 - qrSize) / 2;
-
-    eCtx.drawImage(sourceEl, qrX, qrY, qrSize, qrSize);
-
-    const dataUrl = exportCanvas.toDataURL('image/png');
     const a = document.createElement('a');
-    a.href = dataUrl;
-    a.download = `${workerId}_QRCode.png`;
+    a.href = exportCanvas.toDataURL('image/png');
+    a.download = `${workerId}_QR.png`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
   }
 
-  if (printBadgeBtn) {
-    printBadgeBtn.addEventListener('click', () => {
-      window.print();
-    });
-  }
-
   // ==========================================
-  // 7. STEP 2: STRIP SCAN & AUTO DETECTION
+  // 7. STRIP SCAN & DROPZONE
   // ==========================================
-  if (stripScanBtn) {
-    stripScanBtn.addEventListener('click', (e) => {
+  if (stripScanControls) {
+    stripScanControls.addEventListener('click', () => {
       if (!state.qrVerified) {
-        e.preventDefault();
-        alert('Mandatory Step: Please scan your Worker QR Code first!');
+        alert('Please scan Worker QR first!');
         return;
       }
       if (fileInput) fileInput.click();
@@ -700,10 +601,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (fileInput) {
     fileInput.addEventListener('change', (e) => {
-      if (!state.qrVerified) {
-        alert('Mandatory Step: You must scan your Worker QR Code first!');
-        return;
-      }
+      if (!state.qrVerified) return;
 
       const file = e.target.files[0];
       if (!file) return;
@@ -758,39 +656,27 @@ document.addEventListener('DOMContentLoaded', () => {
     canvasTemp.height = 600;
     const tCtx = canvasTemp.getContext('2d');
 
-    tCtx.fillStyle = '#E2E8F0';
+    tCtx.fillStyle = '#F8FAFC';
     tCtx.fillRect(0, 0, 800, 600);
 
     tCtx.fillStyle = '#FFFFFF';
-    tCtx.strokeStyle = '#64748B';
+    tCtx.strokeStyle = '#E2E8F0';
     tCtx.lineWidth = 4;
     tCtx.fillRect(50, 50, 700, 500);
     tCtx.strokeRect(50, 50, 700, 500);
 
     tCtx.fillStyle = 'rgb(245, 240, 220)';
     tCtx.fillRect(100, 180, 160, 240);
-    tCtx.strokeStyle = '#333';
-    tCtx.lineWidth = 2;
+    tCtx.strokeStyle = '#CBD5E1';
     tCtx.strokeRect(100, 180, 160, 240);
-
-    tCtx.fillStyle = '#0F172A';
-    tCtx.font = 'bold 20px sans-serif';
-    tCtx.textAlign = 'center';
-    tCtx.fillText('WHITE REF', 180, 150);
 
     tCtx.fillStyle = 'rgb(135, 130, 115)';
     tCtx.fillRect(320, 180, 160, 240);
     tCtx.strokeRect(320, 180, 160, 240);
-    tCtx.fillText('GREY REF', 400, 150);
 
     tCtx.fillStyle = 'rgb(115, 90, 70)';
     tCtx.fillRect(540, 180, 160, 240);
     tCtx.strokeRect(540, 180, 160, 240);
-    tCtx.fillText('H2S STRIP', 620, 150);
-
-    tCtx.font = '16px monospace';
-    tCtx.fillStyle = '#64748B';
-    tCtx.fillText('SIH DOSIMETER CALIBRATION CARD (SAMPLE)', 400, 500);
 
     const img = new Image();
     img.onload = () => {
@@ -801,7 +687,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ==========================================
-  // 8. AUTO-DETECTION ALGORITHM
+  // 8. AUTO-DETECTION & PIN CALIBRATION
   // ==========================================
   if (autoDetectBtn) {
     autoDetectBtn.addEventListener('click', autoDetectPatches);
@@ -859,19 +745,11 @@ document.addEventListener('DOMContentLoaded', () => {
     state.tapState = 3;
     if (computeDoseBtn) computeDoseBtn.disabled = false;
 
-    if (autoDetectBanner) {
-      autoDetectBanner.style.display = 'block';
-      setTimeout(() => { autoDetectBanner.style.display = 'none'; }, 4000);
-    }
-
     updateStepUI();
     updateReadoutCards();
     redrawCanvas();
   }
 
-  // ==========================================
-  // 9. TAP-POINT MANUAL CALIBRATION LOGIC
-  // ==========================================
   function resetPinState() {
     state.tapState = 0;
     state.tapPoints = [null, null, null];
@@ -881,9 +759,7 @@ document.addEventListener('DOMContentLoaded', () => {
     redrawCanvas();
   }
 
-  if (resetPinsBtn) {
-    resetPinsBtn.addEventListener('click', resetPinState);
-  }
+  if (resetPinsBtn) resetPinsBtn.addEventListener('click', resetPinState);
 
   if (photoCanvas) {
     photoCanvas.addEventListener('pointerdown', (e) => {
@@ -901,9 +777,7 @@ document.addEventListener('DOMContentLoaded', () => {
       state.tapPoints[state.tapState] = { x: canvasX, y: canvasY, rawRgb };
       state.tapState++;
 
-      if (state.tapState === 3 && computeDoseBtn) {
-        computeDoseBtn.disabled = false;
-      }
+      if (state.tapState === 3 && computeDoseBtn) computeDoseBtn.disabled = false;
 
       updateStepUI();
       updateReadoutCards();
@@ -937,44 +811,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function updateStepUI() {
     const steps = [
-      { step: '1/3', text: 'Tap 1: Select WHITE Reference Patch' },
-      { step: '2/3', text: 'Tap 2: Select GREY Reference Patch' },
-      { step: '3/3', text: 'Tap 3: Select H2S CHEMICAL STRIP Area' },
-      { step: 'Done', text: 'All 3 Points Placed! Ready to Compute.' }
+      'Tap 1: Select WHITE Reference Patch',
+      'Tap 2: Select GREY Reference Patch',
+      'Tap 3: Select H2S Chemical Strip',
+      'Ready to Compute Exposure Dose'
     ];
-
-    const current = steps[Math.min(state.tapState, 3)];
-    if (stepBadge) stepBadge.textContent = `STEP ${current.step}`;
-    if (stepInstruction) stepInstruction.textContent = current.text;
+    if (stepInstruction) stepInstruction.textContent = steps[Math.min(state.tapState, 3)];
   }
 
   function updateReadoutCards() {
     const readouts = [
-      { card: readoutWhite, pt: state.tapPoints[0], label: 'White' },
-      { card: readoutGrey, pt: state.tapPoints[1], label: 'Grey' },
-      { card: readoutStrip, pt: state.tapPoints[2], label: 'Strip' }
+      { card: readoutWhite, pt: state.tapPoints[0] },
+      { card: readoutGrey, pt: state.tapPoints[1] },
+      { card: readoutStrip, pt: state.tapPoints[2] }
     ];
 
     readouts.forEach((r, idx) => {
       if (!r.card) return;
-      const valEl = r.card.querySelector('.rgb-value');
-      const swatchEl = r.card.querySelector('.color-swatch-mini');
+      const textEl = r.card.querySelector('.rgb-text');
 
-      if (idx === state.tapState) {
-        r.card.classList.add('active-target');
-      } else {
-        r.card.classList.remove('active-target');
-      }
+      r.card.classList.toggle('active', idx === state.tapState);
 
       if (r.pt) {
-        r.card.classList.add('has-data');
         const { r: cr, g: cg, b: cb } = r.pt.rawRgb;
-        if (valEl) valEl.textContent = `RGB(${cr}, ${cg}, ${cb})`;
-        if (swatchEl) swatchEl.style.backgroundColor = `rgb(${cr}, ${cg}, ${cb})`;
+        if (textEl) textEl.textContent = `${cr}, ${cg}, ${cb}`;
       } else {
-        r.card.classList.remove('has-data');
-        if (valEl) valEl.textContent = 'Tap Photo';
-        if (swatchEl) swatchEl.style.backgroundColor = '#E2E8F0';
+        if (textEl) textEl.textContent = '--';
       }
     });
   }
@@ -984,8 +846,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     ctx.drawImage(state.loadedImage, 0, 0, photoCanvas.width, photoCanvas.height);
 
-    const pinColors = ['#2563EB', '#8B5CF6', '#EA580C'];
-    const pinLabels = ['1: WHITE', '2: GREY', '3: STRIP'];
+    const pinColors = ['#2563EB', '#8B5CF6', '#D97706'];
 
     state.tapPoints.forEach((pt, idx) => {
       if (!pt) return;
@@ -994,45 +855,36 @@ document.addEventListener('DOMContentLoaded', () => {
       const color = pinColors[idx];
 
       ctx.beginPath();
-      ctx.arc(x, y, 22, 0, Math.PI * 2);
+      ctx.arc(x, y, 16, 0, Math.PI * 2);
       ctx.fillStyle = color;
       ctx.globalAlpha = 0.3;
       ctx.fill();
       ctx.globalAlpha = 1.0;
 
       ctx.beginPath();
-      ctx.arc(x, y, 14, 0, Math.PI * 2);
+      ctx.arc(x, y, 10, 0, Math.PI * 2);
       ctx.fillStyle = color;
       ctx.fill();
-      ctx.lineWidth = 3;
+      ctx.lineWidth = 2.5;
       ctx.strokeStyle = '#FFFFFF';
       ctx.stroke();
 
       ctx.fillStyle = '#FFFFFF';
-      ctx.font = 'bold 13px sans-serif';
+      ctx.font = 'bold 11px sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText((idx + 1).toString(), x, y);
-
-      ctx.font = 'bold 11px sans-serif';
-      const labelText = pinLabels[idx];
-      const textWidth = ctx.measureText(labelText).width;
-
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
-      ctx.fillRect(x - textWidth / 2 - 6, y + 18, textWidth + 12, 18);
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillText(labelText, x, y + 27);
     });
   }
 
   // ==========================================
-  // 10. CORE DOSE COMPUTATION & HIGH-RES CALIBRATION
+  // 9. DOSE COMPUTATION & CONTINUOUS LOOKUP
   // ==========================================
   if (computeDoseBtn) {
     computeDoseBtn.addEventListener('click', () => {
       if (state.tapState < 3) return;
 
-      const currentHours = parseFloat(shiftHoursInput ? shiftHoursInput.value : 8.0) || parseFloat(resultShiftInput ? resultShiftInput.value : 8.0) || state.shiftHours || 8.0;
+      const currentHours = parseFloat(shiftHoursInput ? shiftHoursInput.value : 8.0) || state.shiftHours || 8.0;
       state.shiftHours = currentHours;
 
       const result = computeDoseAlgorithm(
@@ -1061,12 +913,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const luminance = 0.299 * correctedR + 0.587 * correctedG + 0.114 * correctedB;
     const darkness = Math.min(255, Math.max(0, 255 - luminance));
 
-    const dose = typeof getCalibratedDose === 'function' ? getCalibratedDose(darkness) : interpolateDose(darkness, calibrationCurve);
+    const dose = typeof getCalibratedDose === 'function' ? getCalibratedDose(darkness) : 0;
     
     const shiftHours = Math.max(0.1, state.shiftHours || 8.0);
     const twaPpm = (dose / shiftHours);
 
-    let status = 'Normal';
+    let status = 'Normal Exposure';
     let statusClass = 'status-normal';
 
     if (dose >= DOSE_THRESHOLD_HIGH || twaPpm >= TWA_THRESHOLD_HIGH) {
@@ -1098,7 +950,7 @@ document.addEventListener('DOMContentLoaded', () => {
       twaNum: twaPpm,
       status,
       statusClass,
-      scannedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      scannedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
   }
 
@@ -1112,40 +964,17 @@ document.addEventListener('DOMContentLoaded', () => {
       doseNum: res.doseNum,
       twaPpm: res.twaPpm,
       twaNum: res.twaNum,
-      darknessIndex: res.darkness,
       status: res.status,
       statusClass: res.statusClass,
-      badgeValid: state.expiryValid ? 'Yes' : 'No (Expired)',
-      qrVerified: 'Yes (Camera Stream)',
-      scannedAt: new Date().toLocaleString()
+      scannedAt: new Date().toLocaleDateString() + ' ' + res.scannedAt
     };
 
     state.logs.unshift(logEntry);
     localStorage.setItem('h2s_dosimeter_logs', JSON.stringify(state.logs));
-    if (savedDbWorkerId) savedDbWorkerId.textContent = res.workerId;
-  }
-
-  function interpolateDose(darkness, curve) {
-    if (!curve || curve.length === 0) return 0;
-    if (darkness <= curve[0].darkness) return curve[0].dose;
-    if (darkness >= curve[curve.length - 1].darkness) return curve[curve.length - 1].dose;
-
-    for (let i = 0; i < curve.length - 1; i++) {
-      const p1 = curve[i];
-      const p2 = curve[i + 1];
-
-      if (darkness >= p1.darkness && darkness <= p2.darkness) {
-        const rangeDarkness = p2.darkness - p1.darkness;
-        if (rangeDarkness === 0) return p1.dose;
-        const t = (darkness - p1.darkness) / rangeDarkness;
-        return p1.dose + t * (p2.dose - p1.dose);
-      }
-    }
-    return 0;
   }
 
   // ==========================================
-  // 11. DISPLAY RESULT & CONTINUOUS CURVE CHART
+  // 10. DISPLAY RESULT & CONTINUOUS SPARKLINE
   // ==========================================
   function displayResult(res) {
     if (resultDoseVal) resultDoseVal.textContent = res.dose;
@@ -1163,38 +992,23 @@ document.addEventListener('DOMContentLoaded', () => {
     if (rawSwatch) rawSwatch.style.backgroundColor = rawRgbStr;
     if (correctedSwatch) correctedSwatch.style.backgroundColor = corrRgbStr;
 
-    if (rawRgbText) rawRgbText.textContent = `RGB(${res.stripRaw.r}, ${res.stripRaw.g}, ${res.stripRaw.b})`;
-    if (correctedRgbText) correctedRgbText.textContent = `RGB(${res.correctedStrip.r}, ${res.correctedStrip.g}, ${res.correctedStrip.b})`;
-
-    if (techDetailsBox) {
-      techDetailsBox.innerHTML = `
-        <div><strong>Worker ID:</strong> ${res.workerId} (QR Verified) | <strong>Date:</strong> ${res.shiftDate}</div>
-        <div><strong>Shift Duration:</strong> ${res.shiftHours.toFixed(1)} hrs | <strong>TWA Conc:</strong> ${res.twaPpm} ppm</div>
-        <div><strong>Scale Factors:</strong> R:${res.scaleFactors.r}, G:${res.scaleFactors.g}, B:${res.scaleFactors.b}</div>
-        <div><strong>Luminance:</strong> ${res.luminance} | <strong>Darkness Index:</strong> ${res.darkness} / 255.0</div>
-        <div><strong>Raw RGB:</strong> ${rawRgbStr} | <strong>Corrected RGB:</strong> ${corrRgbStr}</div>
-      `;
-    }
+    if (rawRgbText) rawRgbText.textContent = `${res.stripRaw.r}, ${res.stripRaw.g}, ${res.stripRaw.b}`;
+    if (correctedRgbText) correctedRgbText.textContent = `${res.correctedStrip.r}, ${res.correctedStrip.g}, ${res.correctedStrip.b}`;
 
     renderContinuousCalibrationChart(resultCurveChartContainer, res.darknessNum, res.doseNum);
-
-    if (expiryToggle) {
-      state.expiryValid = expiryToggle.checked;
-      updateExpiryUI();
-    }
   }
 
   function renderContinuousCalibrationChart(container, activeDarkness, activeDose) {
     if (!container) return;
     container.innerHTML = '';
-    const svgWidth = 500;
-    const svgHeight = 160;
-    const pad = 30;
+    const svgWidth = 480;
+    const svgHeight = 120;
+    const pad = 24;
 
     const maxD = 110.0;
     const maxK = 255.0;
 
-    const sampleStep = 5;
+    const sampleStep = 6;
     const pointsSvg = [];
     for (let k = 0; k <= maxK; k += sampleStep) {
       const dose = typeof getCalibratedDose === 'function' ? getCalibratedDose(k) : 0;
@@ -1207,61 +1021,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const activeY = (svgHeight - pad) - (activeDose / maxD) * (svgHeight - pad * 2);
 
     const svgHtml = `
-      <svg class="curve-chart-svg" viewBox="0 0 ${svgWidth} ${svgHeight}">
-        <line x1="${pad}" y1="${svgHeight - pad}" x2="${svgWidth - 10}" y2="${svgHeight - pad}" stroke="#CBD5E1" stroke-width="2"/>
-        <line x1="${pad}" y1="10" x2="${pad}" y2="${svgHeight - pad}" stroke="#CBD5E1" stroke-width="2"/>
+      <svg viewBox="0 0 ${svgWidth} ${svgHeight}">
+        <line x1="${pad}" y1="${svgHeight - pad}" x2="${svgWidth - 10}" y2="${svgHeight - pad}" stroke="#E2E8F0" stroke-width="1.5"/>
+        <line x1="${pad}" y1="10" x2="${pad}" y2="${svgHeight - pad}" stroke="#E2E8F0" stroke-width="1.5"/>
         
-        <text x="${svgWidth / 2}" y="${svgHeight - 5}" font-size="10" fill="#64748B" font-weight="700" text-anchor="middle">Darkness Index (0.0 - 255.0)</text>
-        <text x="10" y="${svgHeight / 2}" font-size="10" fill="#64748B" font-weight="700" text-anchor="middle" transform="rotate(-90 10 ${svgHeight / 2})">Dose (ppm·hr)</text>
+        <polyline points="${pointsSvg.join(' ')}" fill="none" stroke="#2563EB" stroke-width="2.5" stroke-linecap="round"/>
 
-        <polyline points="${pointsSvg.join(' ')}" fill="none" stroke="#2563EB" stroke-width="3" stroke-linecap="round"/>
-
-        <circle cx="${activeX}" cy="${activeY}" r="8" fill="#FFC72C" stroke="#0F172A" stroke-width="3"/>
-        <circle cx="${activeX}" cy="${activeY}" r="14" fill="#FFC72C" opacity="0.35"/>
-        <text x="${activeX + 10}" y="${activeY - 5}" font-size="11" font-weight="800" fill="#0F172A">${activeDose.toFixed(1)} ppm·hr (${(activeDose / state.shiftHours).toFixed(2)} ppm TWA)</text>
+        <circle cx="${activeX}" cy="${activeY}" r="6" fill="#D97706" stroke="#FFFFFF" stroke-width="2"/>
+        <text x="${activeX + 8}" y="${activeY - 4}" font-size="10" font-weight="700" fill="#0F172A">${activeDose.toFixed(1)} ppm·hr</text>
       </svg>
     `;
 
     container.innerHTML = svgHtml;
   }
 
-  if (expiryToggle) {
-    expiryToggle.addEventListener('change', () => {
-      state.expiryValid = expiryToggle.checked;
-      updateExpiryUI();
-    });
-  }
-
-  function updateExpiryUI() {
-    if (state.expiryValid) {
-      if (expiredBanner) expiredBanner.style.display = 'none';
-      if (resultDoseCard) {
-        resultDoseCard.style.opacity = '1';
-        resultDoseCard.style.pointerEvents = 'auto';
-      }
-    } else {
-      if (expiredBanner) expiredBanner.style.display = 'flex';
-      if (resultDoseCard) {
-        resultDoseCard.style.opacity = '0.4';
-        resultDoseCard.style.pointerEvents = 'none';
-      }
-    }
-  }
-
-  if (techDetailsToggle) {
-    techDetailsToggle.addEventListener('click', () => {
-      if (techDetailsBox.style.display === 'none' || !techDetailsBox.style.display) {
-        techDetailsBox.style.display = 'flex';
-        techDetailsToggle.textContent = 'Hide Mathematical Diagnostics ▲';
-      } else {
-        techDetailsBox.style.display = 'none';
-        techDetailsToggle.textContent = 'View Mathematical Diagnostics ▼';
-      }
-    });
-  }
-
   // ==========================================
-  // 12. ROLE-BASED DASHBOARD & COMPLIANCE LOG OPERATIONS
+  // 11. DASHBOARD & HISTORY OPERATIONS
   // ==========================================
   function renderDashboard() {
     if (!logTableBody) return;
@@ -1291,11 +1066,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (roleFilteredLogs.length === 0) {
       logTableBody.innerHTML = `
         <tr>
-          <td colspan="8" class="empty-log-state">
-            ${state.userRole === 'admin' 
-              ? (query ? 'No matching company database records found.' : 'No compliance records in database yet.')
-              : `🔒 No exposure records found yet for Worker ID: <strong>${activeId}</strong>.<br><span style="font-size:0.75rem; color:#64748B;">Complete a strip scan to log your first shift.</span>`
-            }
+          <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;">
+            ${state.userRole === 'admin' ? 'No company database records.' : `No records found for ${activeId}.`}
           </td>
         </tr>
       `;
@@ -1310,67 +1082,49 @@ document.addEventListener('DOMContentLoaded', () => {
       tr.innerHTML = `
         <td><strong>${escapeHtml(log.workerId)}</strong></td>
         <td>${escapeHtml(log.shiftDate)}</td>
-        <td><span style="background: #E2E8F0; padding: 2px 6px; border-radius: 4px; font-weight: 700; font-size: 0.75rem;">${escapeHtml(hoursDisplay)}</span></td>
-        <td><strong>${escapeHtml(log.dose)} ppm·hr</strong></td>
-        <td><strong style="color: #2563EB;">${escapeHtml(twaDisplay)}</strong></td>
-        <td><span class="status-badge ${log.statusClass}" style="font-size:0.7rem; padding:2px 8px;">${escapeHtml(log.status)}</span></td>
-        <td><span class="badge-valid-tag valid-yes">✓ ${escapeHtml(log.qrVerified || 'Camera Stream')}</span></td>
-        <td style="color:#64748B; font-size:0.75rem;">${escapeHtml(log.scannedAt)}</td>
+        <td>${escapeHtml(hoursDisplay)}</td>
+        <td>${escapeHtml(log.dose)}</td>
+        <td style="color: #2563EB; font-weight: 700;">${escapeHtml(twaDisplay)}</td>
+        <td><span class="status-badge ${log.statusClass}" style="font-size:0.68rem; padding:2px 8px;">${escapeHtml(log.status)}</span></td>
       `;
       logTableBody.appendChild(tr);
     });
   }
 
-  if (logSearchInput) {
-    logSearchInput.addEventListener('input', renderDashboard);
-  }
+  if (logSearchInput) logSearchInput.addEventListener('input', renderDashboard);
 
   if (exportCsvBtn) {
     exportCsvBtn.addEventListener('click', () => {
       const activeId = state.activeWorkerId || state.workerId || 'EMP-101';
-      let logsToExport = [];
-      let filename = '';
-
-      if (state.userRole === 'admin') {
-        logsToExport = state.logs;
-        filename = `h2s_master_company_database_${new Date().toISOString().split('T')[0]}.csv`;
-      } else {
-        logsToExport = state.logs.filter(l => l.workerId.toUpperCase() === activeId.toUpperCase());
-        filename = `h2s_exposure_history_${activeId}_${new Date().toISOString().split('T')[0]}.csv`;
-      }
+      let logsToExport = state.userRole === 'admin' ? state.logs : state.logs.filter(l => l.workerId.toUpperCase() === activeId.toUpperCase());
 
       if (logsToExport.length === 0) {
-        alert(state.userRole === 'admin' ? 'No company records available to export.' : `No personal records found for ${activeId} to export.`);
+        alert('No records available to export.');
         return;
       }
 
-      const headers = ['Worker ID', 'Shift Date', 'Shift Duration (hrs)', 'Cumulative Dose (ppm·hr)', 'TWA Concentration (ppm)', 'Status', 'QR Verified', 'Scanned At'];
+      const headers = ['Worker ID', 'Shift Date', 'Shift Hours', 'Dose (ppm·hr)', 'TWA (ppm)', 'Status', 'Logged At'];
       const csvRows = [headers.join(',')];
 
       logsToExport.forEach(log => {
         const hours = log.shiftHours || 8.0;
         const twa = log.twaPpm || (parseFloat(log.dose) / hours).toFixed(2);
-
-        const row = [
-          `"${log.workerId.replace(/"/g, '""')}"`,
+        csvRows.push([
+          `"${log.workerId}"`,
           `"${log.shiftDate}"`,
           `"${hours}"`,
           `"${log.dose}"`,
           `"${twa}"`,
           `"${log.status}"`,
-          `"${log.qrVerified || 'Yes'}"`,
           `"${log.scannedAt}"`
-        ];
-        csvRows.push(row.join(','));
+        ].join(','));
       });
 
-      const csvContent = csvRows.join('\n');
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
-
       const a = document.createElement('a');
       a.href = url;
-      a.download = filename;
+      a.download = `h2s_exposure_${state.userRole === 'admin' ? 'master' : activeId}_${new Date().toISOString().split('T')[0]}.csv`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -1380,14 +1134,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (clearLogBtn) {
     clearLogBtn.addEventListener('click', () => {
-      if (state.userRole !== 'admin') {
-        alert('Unauthorized action: Only Safety Admins can clear the database.');
-        return;
-      }
-
-      if (state.logs.length === 0) return;
-
-      if (confirm('⚠️ ADMIN ACTION: Are you sure you want to permanently clear the ENTIRE company database? This cannot be undone.')) {
+      if (state.userRole !== 'admin') return;
+      if (confirm('Permanently clear all compliance logs?')) {
         state.logs = [];
         localStorage.removeItem('h2s_dosimeter_logs');
         renderDashboard();
