@@ -23,9 +23,13 @@ document.addEventListener('DOMContentLoaded', () => {
     logs: JSON.parse(localStorage.getItem('h2s_dosimeter_logs') || '[]')
   };
 
-  // DOM Elements
+  // Screen 1 DOM Elements
   const shiftHoursInput = document.getElementById('shiftHoursInput');
-  const shiftPresetBtns = document.querySelectorAll('.shift-preset-btn');
+  const shiftPresetBtns = document.querySelectorAll('.shift-preset-btn:not(.result-shift-btn)');
+
+  // Screen 3 DOM Elements
+  const resultShiftInput = document.getElementById('resultShiftInput');
+  const resultShiftBtns = document.querySelectorAll('.result-shift-btn');
 
   const stripScanBtn = document.getElementById('stripScanBtn');
   const fileInput = document.getElementById('fileInput');
@@ -110,48 +114,77 @@ document.addEventListener('DOMContentLoaded', () => {
   modalWorkerIdInput.value = 'EMP-101';
   modalShiftHoursInput.value = '8.0';
   shiftHoursInput.value = '8.0';
+  if (resultShiftInput) resultShiftInput.value = '8.0';
 
   // ==========================================
-  // 2. SHIFT DURATION PRESETS & INPUT HANDLING
+  // 2. SHIFT DURATION PRESETS & LIVE SYNC
   // ==========================================
+  function syncShiftHoursUI(hours) {
+    state.shiftHours = Math.max(0.1, hours);
+    const hoursStr = state.shiftHours.toFixed(1);
+
+    if (shiftHoursInput) shiftHoursInput.value = hoursStr;
+    if (resultShiftInput) resultShiftInput.value = hoursStr;
+
+    shiftPresetBtns.forEach(btn => {
+      if (parseFloat(btn.dataset.hours) === state.shiftHours) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    });
+
+    resultShiftBtns.forEach(btn => {
+      if (parseFloat(btn.dataset.hours) === state.shiftHours) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    });
+
+    if (state.latestResult) {
+      recomputeDoseWithNewHours(state.shiftHours);
+    }
+  }
+
   shiftPresetBtns.forEach(btn => {
     btn.addEventListener('click', () => {
-      shiftPresetBtns.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
       const hours = parseFloat(btn.dataset.hours) || 8.0;
-      state.shiftHours = hours;
-      shiftHoursInput.value = hours.toFixed(1);
+      syncShiftHoursUI(hours);
+    });
+  });
 
-      if (state.latestResult) {
-        recomputeDoseWithNewHours(hours);
-      }
+  resultShiftBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const hours = parseFloat(btn.dataset.hours) || 8.0;
+      syncShiftHoursUI(hours);
     });
   });
 
   shiftHoursInput.addEventListener('input', (e) => {
     const val = parseFloat(e.target.value);
     if (!isNaN(val) && val > 0) {
-      state.shiftHours = val;
-      shiftPresetBtns.forEach(b => {
-        if (parseFloat(b.dataset.hours) === val) {
-          b.classList.add('active');
-        } else {
-          b.classList.remove('active');
-        }
-      });
-
-      if (state.latestResult) {
-        recomputeDoseWithNewHours(val);
-      }
+      syncShiftHoursUI(val);
     }
   });
+
+  if (resultShiftInput) {
+    resultShiftInput.addEventListener('input', (e) => {
+      const val = parseFloat(e.target.value);
+      if (!isNaN(val) && val > 0) {
+        syncShiftHoursUI(val);
+      }
+    });
+  }
 
   function recomputeDoseWithNewHours(hours) {
     if (!state.latestResult) return;
     const dose = state.latestResult.doseNum;
-    const twaPpm = calculateTwaConcentration(dose, hours);
+    const twaPpm = (dose / Math.max(0.1, hours));
+    
     state.latestResult.shiftHours = hours;
-    state.latestResult.twaPpm = twaPpm;
+    state.latestResult.twaPpm = twaPpm.toFixed(2);
+    state.latestResult.twaNum = twaPpm;
 
     // Re-evaluate safety status based on updated shift duration
     let status = 'Normal';
@@ -167,6 +200,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     state.latestResult.status = status;
     state.latestResult.statusClass = statusClass;
+
+    // Also update current saved log entry if matches
+    if (state.logs.length > 0) {
+      state.logs[0].shiftHours = hours;
+      state.logs[0].twaPpm = twaPpm.toFixed(2);
+      state.logs[0].twaNum = twaPpm;
+      state.logs[0].status = status;
+      state.logs[0].statusClass = statusClass;
+      localStorage.setItem('h2s_dosimeter_logs', JSON.stringify(state.logs));
+    }
 
     displayResult(state.latestResult);
   }
@@ -304,13 +347,13 @@ document.addEventListener('DOMContentLoaded', () => {
   function handleSuccessfulQrScan(qrData) {
     let scannedWorkerId = qrData;
     let scannedShiftDate = new Date().toISOString().split('T')[0];
-    let scannedShiftHours = 8.0;
+    let scannedShiftHours = parseFloat(shiftHoursInput.value) || state.shiftHours || 8.0;
 
     try {
       const parsed = JSON.parse(qrData);
       if (parsed.workerId) scannedWorkerId = parsed.workerId;
       if (parsed.shiftDate) scannedShiftDate = parsed.shiftDate;
-      if (parsed.shiftHours) scannedShiftHours = parseFloat(parsed.shiftHours) || 8.0;
+      if (parsed.shiftHours) scannedShiftHours = parseFloat(parsed.shiftHours) || scannedShiftHours;
     } catch (e) {
       // Raw string
     }
@@ -321,8 +364,7 @@ document.addEventListener('DOMContentLoaded', () => {
     state.verifiedWorker = { workerId: scannedWorkerId, shiftDate: scannedShiftDate, shiftHours: scannedShiftHours };
     state.workerId = scannedWorkerId;
     state.shiftDate = scannedShiftDate;
-    state.shiftHours = scannedShiftHours;
-    shiftHoursInput.value = scannedShiftHours.toFixed(1);
+    syncShiftHoursUI(scannedShiftHours);
 
     vWorkerId.textContent = scannedWorkerId;
     vShiftDate.textContent = scannedShiftDate;
@@ -815,6 +857,10 @@ document.addEventListener('DOMContentLoaded', () => {
   computeDoseBtn.addEventListener('click', () => {
     if (state.tapState < 3) return;
 
+    // Always fetch latest shift hours from input
+    const currentHours = parseFloat(shiftHoursInput?.value) || parseFloat(resultShiftInput?.value) || state.shiftHours || 8.0;
+    state.shiftHours = currentHours;
+
     const result = computeDoseAlgorithm(
       state.tapPoints[0].rawRgb,
       state.tapPoints[1].rawRgb,
@@ -845,7 +891,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Dynamic Time-Weighted Average Concentration in ppm
     const shiftHours = Math.max(0.1, state.shiftHours || 8.0);
-    const twaPpm = typeof calculateTwaConcentration === 'function' ? calculateTwaConcentration(dose, shiftHours) : Number((dose / shiftHours).toFixed(2));
+    const twaPpm = (dose / shiftHours);
 
     // Occupational Safety Evaluation (Dose & TWA Concentration)
     let status = 'Normal';
@@ -969,7 +1015,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const maxD = 110.0;
     const maxK = 255.0;
 
-    // Sample high-density curve points for smooth SVG polyline
     const sampleStep = 5;
     const pointsSvg = [];
     for (let k = 0; k <= maxK; k += sampleStep) {
@@ -1059,7 +1104,7 @@ document.addEventListener('DOMContentLoaded', () => {
     filteredLogs.forEach(log => {
       const tr = document.createElement('tr');
       const hoursDisplay = log.shiftHours ? `${parseFloat(log.shiftHours).toFixed(1)}h` : '8.0h';
-      const twaDisplay = log.twaPpm ? `${log.twaPpm} ppm` : `${(parseFloat(log.dose) / 8).toFixed(2)} ppm`;
+      const twaDisplay = log.twaPpm ? `${log.twaPpm} ppm` : `${(parseFloat(log.dose) / (log.shiftHours || 8)).toFixed(2)} ppm`;
 
       tr.innerHTML = `
         <td><strong>${escapeHtml(log.workerId)}</strong></td>
