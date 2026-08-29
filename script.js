@@ -142,11 +142,15 @@ document.addEventListener('DOMContentLoaded', () => {
   // ==========================================
   function updateRoleUI() {
     if (state.userRole === 'admin') {
-      headerRoleTag.textContent = '🛡️ Admin Master';
-      headerRoleTag.className = 'role-tag role-admin';
-      adminPortalToggleBtn.textContent = '🚪 Exit Admin';
-      adminPortalToggleBtn.style.background = '#EF4444';
-      adminPortalToggleBtn.style.color = '#FFFFFF';
+      if (headerRoleTag) {
+        headerRoleTag.textContent = '🛡️ Admin Master';
+        headerRoleTag.className = 'role-tag role-admin';
+      }
+      if (adminPortalToggleBtn) {
+        adminPortalToggleBtn.textContent = '🚪 Exit Admin';
+        adminPortalToggleBtn.style.background = '#EF4444';
+        adminPortalToggleBtn.style.color = '#FFFFFF';
+      }
 
       if (adminMasterBanner) adminMasterBanner.style.display = 'block';
       if (workerPrivacyBanner) workerPrivacyBanner.style.display = 'none';
@@ -155,11 +159,15 @@ document.addEventListener('DOMContentLoaded', () => {
       if (statTotalLabel) statTotalLabel.textContent = 'Company Shifts';
     } else {
       const activeId = state.activeWorkerId || state.workerId || 'EMP-101';
-      headerRoleTag.textContent = `👤 Worker: ${activeId}`;
-      headerRoleTag.className = 'role-tag role-worker';
-      adminPortalToggleBtn.textContent = '🛡️ Admin Portal';
-      adminPortalToggleBtn.style.background = 'rgba(255, 255, 255, 0.12)';
-      adminPortalToggleBtn.style.color = '#FFFFFF';
+      if (headerRoleTag) {
+        headerRoleTag.textContent = `👤 Worker: ${activeId}`;
+        headerRoleTag.className = 'role-tag role-worker';
+      }
+      if (adminPortalToggleBtn) {
+        adminPortalToggleBtn.textContent = '🛡️ Admin Portal';
+        adminPortalToggleBtn.style.background = 'rgba(255, 255, 255, 0.12)';
+        adminPortalToggleBtn.style.color = '#FFFFFF';
+      }
 
       if (adminMasterBanner) adminMasterBanner.style.display = 'none';
       if (workerPrivacyBanner) {
@@ -174,79 +182,70 @@ document.addEventListener('DOMContentLoaded', () => {
     renderDashboard();
   }
 
-  function openAdminLoginModal() {
-    adminPinInput.value = '';
-    adminPinErrorMsg.style.display = 'none';
-    adminLoginModal.style.display = 'flex';
+  // Global Function Bindings
+  window.openAdminLoginModal = function() {
+    if (adminPinInput) adminPinInput.value = '';
+    if (adminPinErrorMsg) adminPinErrorMsg.style.display = 'none';
+    if (adminLoginModal) adminLoginModal.style.display = 'flex';
     setTimeout(() => {
       if (adminPinInput) adminPinInput.focus();
-    }, 150);
-  }
+    }, 100);
+  };
 
-  adminPortalToggleBtn.addEventListener('click', () => {
-    if (state.userRole === 'admin') {
-      state.userRole = 'worker';
-      updateRoleUI();
-      alert('🔒 Switched back to Worker Privacy View.');
-    } else {
-      openAdminLoginModal();
-    }
-  });
+  window.closeAdminModal = function() {
+    if (adminLoginModal) adminLoginModal.style.display = 'none';
+  };
 
-  headerRoleTag.addEventListener('click', () => {
-    if (state.userRole === 'admin') {
-      state.userRole = 'worker';
-      updateRoleUI();
-    } else {
-      openAdminLoginModal();
-    }
-  });
-
-  if (dashboardAdminUnlockBtn) {
-    dashboardAdminUnlockBtn.addEventListener('click', openAdminLoginModal);
-  }
-
-  if (exitAdminModeBtn) {
-    exitAdminModeBtn.addEventListener('click', () => {
-      state.userRole = 'worker';
-      updateRoleUI();
-      alert('🔒 Switched back to Worker Privacy View.');
-    });
-  }
-
-  closeAdminModalBtn.addEventListener('click', () => {
-    adminLoginModal.style.display = 'none';
-  });
-
-  adminLoginModal.addEventListener('click', (e) => {
-    if (e.target === adminLoginModal) {
-      adminLoginModal.style.display = 'none';
-    }
-  });
-
-  if (autoFillPinBtn) {
-    autoFillPinBtn.addEventListener('click', () => {
+  window.autoFillDemoPin = function() {
+    if (adminPinInput) {
       adminPinInput.value = 'admin123';
-      handleAdminPinSubmit();
-    });
-  }
+      window.handleAdminPinSubmit();
+    }
+  };
 
-  submitAdminPinBtn.addEventListener('click', handleAdminPinSubmit);
-  adminPinInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') handleAdminPinSubmit();
-  });
+  window.exitAdminMode = function() {
+    state.userRole = 'worker';
+    updateRoleUI();
+    alert('🔒 Switched back to Worker Privacy View.');
+  };
 
-  function handleAdminPinSubmit() {
-    const pin = adminPinInput.value.trim();
+  window.handleAdminHeaderBtnClick = function() {
+    if (state.userRole === 'admin') {
+      window.exitAdminMode();
+    } else {
+      window.openAdminLoginModal();
+    }
+  };
+
+  window.openQrModalWindow = function() {
+    generateAndRegisterWorkerQr();
+  };
+
+  window.handleAdminPinSubmit = function() {
+    const pin = (adminPinInput ? adminPinInput.value : '').trim();
     if (pin === 'admin123' || pin === '9999') {
       state.userRole = 'admin';
-      adminLoginModal.style.display = 'none';
+      if (adminLoginModal) adminLoginModal.style.display = 'none';
       updateRoleUI();
       alert('🔓 Safety Admin Master Access Granted!\nYou can now view all workers and export the complete compliance database.');
       switchScreen('dashboard-screen');
     } else {
-      adminPinErrorMsg.style.display = 'block';
+      if (adminPinErrorMsg) adminPinErrorMsg.style.display = 'block';
     }
+  };
+
+  if (adminLoginModal) {
+    adminLoginModal.addEventListener('click', (e) => {
+      if (e.target === adminLoginModal) {
+        adminLoginModal.style.display = 'none';
+      }
+    });
+  }
+
+  if (adminPinInput) {
+    adminPinInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') window.handleAdminPinSubmit();
+    });
   }
 
   // ==========================================
@@ -294,12 +293,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  shiftHoursInput.addEventListener('input', (e) => {
-    const val = parseFloat(e.target.value);
-    if (!isNaN(val) && val > 0) {
-      syncShiftHoursUI(val);
-    }
-  });
+  if (shiftHoursInput) {
+    shiftHoursInput.addEventListener('input', (e) => {
+      const val = parseFloat(e.target.value);
+      if (!isNaN(val) && val > 0) {
+        syncShiftHoursUI(val);
+      }
+    });
+  }
 
   if (resultShiftInput) {
     resultShiftInput.addEventListener('input', (e) => {
@@ -383,7 +384,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // ==========================================
   // 5. STEP 1: MANDATORY LIVE CAMERA QR SCANNER
   // ==========================================
-  startLiveQrCameraBtn.addEventListener('click', startLiveCameraScan);
+  if (startLiveQrCameraBtn) {
+    startLiveQrCameraBtn.addEventListener('click', startLiveCameraScan);
+  }
 
   function startLiveCameraScan() {
     liveCameraModal.style.display = 'flex';
@@ -444,41 +447,45 @@ document.addEventListener('DOMContentLoaded', () => {
     liveCameraModal.style.display = 'none';
   }
 
-  closeLiveCameraBtn.addEventListener('click', stopLiveCamera);
+  if (closeLiveCameraBtn) {
+    closeLiveCameraBtn.addEventListener('click', stopLiveCamera);
+  }
 
-  qrFileInput.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+  if (qrFileInput) {
+    qrFileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const img = new Image();
-      img.onload = () => {
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = img.width;
-        tempCanvas.height = img.height;
-        const tCtx = tempCanvas.getContext('2d');
-        tCtx.drawImage(img, 0, 0);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const tempCanvas = document.createElement('canvas');
+          tempCanvas.width = img.width;
+          tempCanvas.height = img.height;
+          const tCtx = tempCanvas.getContext('2d');
+          tCtx.drawImage(img, 0, 0);
 
-        const imgData = tCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
-        if (typeof jsQR !== 'undefined') {
-          const code = jsQR(imgData.data, imgData.width, imgData.height);
-          if (code && code.data) {
-            handleSuccessfulQrScan(code.data);
-            return;
+          const imgData = tCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+          if (typeof jsQR !== 'undefined') {
+            const code = jsQR(imgData.data, imgData.width, imgData.height);
+            if (code && code.data) {
+              handleSuccessfulQrScan(code.data);
+              return;
+            }
           }
-        }
-        alert('No valid QR code found in selected image.');
+          alert('No valid QR code found in selected image.');
+        };
+        img.src = event.target.result;
       };
-      img.src = event.target.result;
-    };
-    reader.readAsDataURL(file);
-  });
+      reader.readAsDataURL(file);
+    });
+  }
 
   function handleSuccessfulQrScan(qrData) {
     let scannedWorkerId = qrData;
     let scannedShiftDate = new Date().toISOString().split('T')[0];
-    let scannedShiftHours = parseFloat(shiftHoursInput.value) || state.shiftHours || 8.0;
+    let scannedShiftHours = parseFloat(shiftHoursInput ? shiftHoursInput.value : 8.0) || state.shiftHours || 8.0;
 
     try {
       const parsed = JSON.parse(qrData);
@@ -500,16 +507,20 @@ document.addEventListener('DOMContentLoaded', () => {
     syncShiftHoursUI(scannedShiftHours);
     updateRoleUI();
 
-    vWorkerId.textContent = scannedWorkerId;
-    vShiftDate.textContent = scannedShiftDate;
-    verifiedWorkerCard.style.display = 'flex';
+    if (vWorkerId) vWorkerId.textContent = scannedWorkerId;
+    if (vShiftDate) vShiftDate.textContent = scannedShiftDate;
+    if (verifiedWorkerCard) verifiedWorkerCard.style.display = 'flex';
 
-    stripScanSectionCard.classList.remove('strip-section-locked');
-    stripLockStatusTag.textContent = '🔓 UNLOCKED';
-    stripLockStatusTag.className = 'badge-valid-tag valid-yes';
-    stripLockNotice.style.display = 'none';
-    stripScanControls.style.opacity = '1';
-    stripScanControls.style.pointerEvents = 'auto';
+    if (stripScanSectionCard) stripScanSectionCard.classList.remove('strip-section-locked');
+    if (stripLockStatusTag) {
+      stripLockStatusTag.textContent = '🔓 UNLOCKED';
+      stripLockStatusTag.className = 'badge-valid-tag valid-yes';
+    }
+    if (stripLockNotice) stripLockNotice.style.display = 'none';
+    if (stripScanControls) {
+      stripScanControls.style.opacity = '1';
+      stripScanControls.style.pointerEvents = 'auto';
+    }
 
     alert(`✅ QR VERIFIED! Loaded profile for ${scannedWorkerId}.\nShift: ${scannedShiftHours} hrs.\n\nStep 2 (Strip Scan) is now UNLOCKED.`);
   }
@@ -518,16 +529,16 @@ document.addEventListener('DOMContentLoaded', () => {
   // 6. WORKER QR REGISTRATION & PNG EXPORTER MODAL
   // ==========================================
   function generateAndRegisterWorkerQr() {
-    let workerId = modalWorkerIdInput.value.trim() || 'EMP-101';
-    let shiftDate = modalShiftDateInput.value || state.shiftDate;
-    let shiftHours = parseFloat(modalShiftHoursInput.value) || 8.0;
+    let workerId = (modalWorkerIdInput ? modalWorkerIdInput.value.trim() : '') || 'EMP-101';
+    let shiftDate = (modalShiftDateInput ? modalShiftDateInput.value : '') || state.shiftDate;
+    let shiftHours = parseFloat(modalShiftHoursInput ? modalShiftHoursInput.value : 8.0) || 8.0;
 
-    modalWorkerIdInput.value = workerId;
-    modalShiftDateInput.value = shiftDate;
-    modalShiftHoursInput.value = shiftHours.toFixed(1);
+    if (modalWorkerIdInput) modalWorkerIdInput.value = workerId;
+    if (modalShiftDateInput) modalShiftDateInput.value = shiftDate;
+    if (modalShiftHoursInput) modalShiftHoursInput.value = shiftHours.toFixed(1);
 
     renderQrModalCode(workerId, shiftDate, shiftHours);
-    qrBadgeModal.style.display = 'flex';
+    if (qrBadgeModal) qrBadgeModal.style.display = 'flex';
   }
 
   function renderQrModalCode(workerId, shiftDate, shiftHours) {
@@ -547,9 +558,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     localStorage.setItem('h2s_worker_db', JSON.stringify(state.dbWorkers));
 
-    badgeWorkerIdText.textContent = workerId;
-    badgeShiftDateText.textContent = shiftDate;
-    badgeShiftHoursText.textContent = shiftHours.toFixed(1);
+    if (badgeWorkerIdText) badgeWorkerIdText.textContent = workerId;
+    if (badgeShiftDateText) badgeShiftDateText.textContent = shiftDate;
+    if (badgeShiftHoursText) badgeShiftHoursText.textContent = shiftHours.toFixed(1);
 
     const payload = JSON.stringify({
       workerId,
@@ -558,50 +569,64 @@ document.addEventListener('DOMContentLoaded', () => {
       app: 'H2S_Dose_Reader'
     });
 
-    qrcodeDisplay.innerHTML = '';
-    if (typeof QRCode !== 'undefined') {
-      new QRCode(qrcodeDisplay, {
-        text: payload,
-        width: 200,
-        height: 200,
-        colorDark: '#0F172A',
-        colorLight: '#FFFFFF',
-        correctLevel: QRCode.CorrectLevel.H
-      });
+    if (qrcodeDisplay) {
+      qrcodeDisplay.innerHTML = '';
+      if (typeof QRCode !== 'undefined') {
+        new QRCode(qrcodeDisplay, {
+          text: payload,
+          width: 200,
+          height: 200,
+          colorDark: '#0F172A',
+          colorLight: '#FFFFFF',
+          correctLevel: QRCode.CorrectLevel.H
+        });
+      }
     }
   }
 
-  modalWorkerIdInput.addEventListener('input', (e) => {
-    const newWorkerId = e.target.value.trim() || 'EMP-101';
-    const currentShiftDate = modalShiftDateInput.value || state.shiftDate;
-    const currentShiftHours = parseFloat(modalShiftHoursInput.value) || 8.0;
-    renderQrModalCode(newWorkerId, currentShiftDate, currentShiftHours);
-  });
+  if (modalWorkerIdInput) {
+    modalWorkerIdInput.addEventListener('input', (e) => {
+      const newWorkerId = e.target.value.trim() || 'EMP-101';
+      const currentShiftDate = modalShiftDateInput ? modalShiftDateInput.value : state.shiftDate;
+      const currentShiftHours = parseFloat(modalShiftHoursInput ? modalShiftHoursInput.value : 8.0) || 8.0;
+      renderQrModalCode(newWorkerId, currentShiftDate, currentShiftHours);
+    });
+  }
 
-  modalShiftDateInput.addEventListener('change', (e) => {
-    const currentWorkerId = modalWorkerIdInput.value.trim() || 'EMP-101';
-    const newShiftDate = e.target.value || state.shiftDate;
-    const currentShiftHours = parseFloat(modalShiftHoursInput.value) || 8.0;
-    renderQrModalCode(currentWorkerId, newShiftDate, currentShiftHours);
-  });
+  if (modalShiftDateInput) {
+    modalShiftDateInput.addEventListener('change', (e) => {
+      const currentWorkerId = modalWorkerIdInput ? modalWorkerIdInput.value.trim() : 'EMP-101';
+      const newShiftDate = e.target.value || state.shiftDate;
+      const currentShiftHours = parseFloat(modalShiftHoursInput ? modalShiftHoursInput.value : 8.0) || 8.0;
+      renderQrModalCode(currentWorkerId, newShiftDate, currentShiftHours);
+    });
+  }
 
-  modalShiftHoursInput.addEventListener('input', (e) => {
-    const currentWorkerId = modalWorkerIdInput.value.trim() || 'EMP-101';
-    const currentShiftDate = modalShiftDateInput.value || state.shiftDate;
-    const newShiftHours = parseFloat(e.target.value) || 8.0;
-    renderQrModalCode(currentWorkerId, currentShiftDate, newShiftHours);
-  });
+  if (modalShiftHoursInput) {
+    modalShiftHoursInput.addEventListener('input', (e) => {
+      const currentWorkerId = modalWorkerIdInput ? modalWorkerIdInput.value.trim() : 'EMP-101';
+      const currentShiftDate = modalShiftDateInput ? modalShiftDateInput.value : state.shiftDate;
+      const newShiftHours = parseFloat(e.target.value) || 8.0;
+      renderQrModalCode(currentWorkerId, currentShiftDate, newShiftHours);
+    });
+  }
 
-  headerQrRegisterBtn.addEventListener('click', generateAndRegisterWorkerQr);
-  closeQrModalBtn.addEventListener('click', () => qrBadgeModal.style.display = 'none');
+  if (headerQrRegisterBtn) {
+    headerQrRegisterBtn.addEventListener('click', generateAndRegisterWorkerQr);
+  }
+  if (closeQrModalBtn) {
+    closeQrModalBtn.addEventListener('click', () => { if (qrBadgeModal) qrBadgeModal.style.display = 'none'; });
+  }
 
   // DOWNLOAD EXACT REFERENCE SCANNABLE QR CODE
-  downloadQrPngBtn.addEventListener('click', downloadQrCodePng);
+  if (downloadQrPngBtn) {
+    downloadQrPngBtn.addEventListener('click', downloadQrCodePng);
+  }
 
   function downloadQrCodePng() {
-    const workerId = badgeWorkerIdText.textContent.trim() || 'EMP-101';
-    const qrCanvas = qrcodeDisplay.querySelector('canvas');
-    const qrImg = qrcodeDisplay.querySelector('img');
+    const workerId = (badgeWorkerIdText ? badgeWorkerIdText.textContent.trim() : '') || 'EMP-101';
+    const qrCanvas = qrcodeDisplay ? qrcodeDisplay.querySelector('canvas') : null;
+    const qrImg = qrcodeDisplay ? qrcodeDisplay.querySelector('img') : null;
 
     const sourceEl = qrCanvas || qrImg;
     if (!sourceEl) {
@@ -653,9 +678,11 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.removeChild(a);
   }
 
-  printBadgeBtn.addEventListener('click', () => {
-    window.print();
-  });
+  if (printBadgeBtn) {
+    printBadgeBtn.addEventListener('click', () => {
+      window.print();
+    });
+  }
 
   // ==========================================
   // 7. STEP 2: STRIP SCAN & AUTO DETECTION
@@ -667,39 +694,43 @@ document.addEventListener('DOMContentLoaded', () => {
         alert('Mandatory Step: Please scan your Worker QR Code first!');
         return;
       }
-      fileInput.click();
+      if (fileInput) fileInput.click();
     });
   }
 
-  fileInput.addEventListener('change', (e) => {
-    if (!state.qrVerified) {
-      alert('Mandatory Step: You must scan your Worker QR Code first!');
-      return;
-    }
+  if (fileInput) {
+    fileInput.addEventListener('change', (e) => {
+      if (!state.qrVerified) {
+        alert('Mandatory Step: You must scan your Worker QR Code first!');
+        return;
+      }
 
-    const file = e.target.files[0];
-    if (!file) return;
+      const file = e.target.files[0];
+      if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const img = new Image();
-      img.onload = () => {
-        loadImageToCanvas(img);
-        switchScreen('calibrate-screen');
-        autoDetectPatches();
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          loadImageToCanvas(img);
+          switchScreen('calibrate-screen');
+          autoDetectPatches();
+        };
+        img.src = event.target.result;
       };
-      img.src = event.target.result;
-    };
-    reader.readAsDataURL(file);
-  });
+      reader.readAsDataURL(file);
+    });
+  }
 
-  demoSampleBtn.addEventListener('click', () => {
-    if (!state.qrVerified) {
-      handleSuccessfulQrScan(JSON.stringify({ workerId: 'EMP-101', shiftDate: state.shiftDate, shiftHours: state.shiftHours }));
-    }
-    generateDemoSamplePhoto();
-    switchScreen('calibrate-screen');
-  });
+  if (demoSampleBtn) {
+    demoSampleBtn.addEventListener('click', () => {
+      if (!state.qrVerified) {
+        handleSuccessfulQrScan(JSON.stringify({ workerId: 'EMP-101', shiftDate: state.shiftDate, shiftHours: state.shiftHours }));
+      }
+      generateDemoSamplePhoto();
+      switchScreen('calibrate-screen');
+    });
+  }
 
   function loadImageToCanvas(img) {
     state.loadedImage = img;
@@ -772,7 +803,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // ==========================================
   // 8. AUTO-DETECTION ALGORITHM
   // ==========================================
-  autoDetectBtn.addEventListener('click', autoDetectPatches);
+  if (autoDetectBtn) {
+    autoDetectBtn.addEventListener('click', autoDetectPatches);
+  }
 
   function autoDetectPatches() {
     if (!state.loadedImage) return;
@@ -824,10 +857,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     state.tapPoints = [brightestPt, greyPt, stripPt];
     state.tapState = 3;
-    computeDoseBtn.disabled = false;
+    if (computeDoseBtn) computeDoseBtn.disabled = false;
 
-    autoDetectBanner.style.display = 'block';
-    setTimeout(() => { autoDetectBanner.style.display = 'none'; }, 4000);
+    if (autoDetectBanner) {
+      autoDetectBanner.style.display = 'block';
+      setTimeout(() => { autoDetectBanner.style.display = 'none'; }, 4000);
+    }
 
     updateStepUI();
     updateReadoutCards();
@@ -840,37 +875,41 @@ document.addEventListener('DOMContentLoaded', () => {
   function resetPinState() {
     state.tapState = 0;
     state.tapPoints = [null, null, null];
-    computeDoseBtn.disabled = true;
+    if (computeDoseBtn) computeDoseBtn.disabled = true;
     updateStepUI();
     updateReadoutCards();
     redrawCanvas();
   }
 
-  resetPinsBtn.addEventListener('click', resetPinState);
+  if (resetPinsBtn) {
+    resetPinsBtn.addEventListener('click', resetPinState);
+  }
 
-  photoCanvas.addEventListener('pointerdown', (e) => {
-    if (!state.loadedImage || state.tapState >= 3) return;
+  if (photoCanvas) {
+    photoCanvas.addEventListener('pointerdown', (e) => {
+      if (!state.loadedImage || state.tapState >= 3) return;
 
-    const rect = photoCanvas.getBoundingClientRect();
-    const scaleX = photoCanvas.width / rect.width;
-    const scaleY = photoCanvas.height / rect.height;
+      const rect = photoCanvas.getBoundingClientRect();
+      const scaleX = photoCanvas.width / rect.width;
+      const scaleY = photoCanvas.height / rect.height;
 
-    const canvasX = Math.round((e.clientX - rect.left) * scaleX);
-    const canvasY = Math.round((e.clientY - rect.top) * scaleY);
+      const canvasX = Math.round((e.clientX - rect.left) * scaleX);
+      const canvasY = Math.round((e.clientY - rect.top) * scaleY);
 
-    const rawRgb = getAverageRGB(canvasX, canvasY, 5);
+      const rawRgb = getAverageRGB(canvasX, canvasY, 5);
 
-    state.tapPoints[state.tapState] = { x: canvasX, y: canvasY, rawRgb };
-    state.tapState++;
+      state.tapPoints[state.tapState] = { x: canvasX, y: canvasY, rawRgb };
+      state.tapState++;
 
-    if (state.tapState === 3) {
-      computeDoseBtn.disabled = false;
-    }
+      if (state.tapState === 3 && computeDoseBtn) {
+        computeDoseBtn.disabled = false;
+      }
 
-    updateStepUI();
-    updateReadoutCards();
-    redrawCanvas();
-  });
+      updateStepUI();
+      updateReadoutCards();
+      redrawCanvas();
+    });
+  }
 
   function getAverageRGB(x, y, radius = 5) {
     const startX = Math.max(0, x - radius);
@@ -905,8 +944,8 @@ document.addEventListener('DOMContentLoaded', () => {
     ];
 
     const current = steps[Math.min(state.tapState, 3)];
-    stepBadge.textContent = `STEP ${current.step}`;
-    stepInstruction.textContent = current.text;
+    if (stepBadge) stepBadge.textContent = `STEP ${current.step}`;
+    if (stepInstruction) stepInstruction.textContent = current.text;
   }
 
   function updateReadoutCards() {
@@ -917,6 +956,7 @@ document.addEventListener('DOMContentLoaded', () => {
     ];
 
     readouts.forEach((r, idx) => {
+      if (!r.card) return;
       const valEl = r.card.querySelector('.rgb-value');
       const swatchEl = r.card.querySelector('.color-swatch-mini');
 
@@ -929,12 +969,12 @@ document.addEventListener('DOMContentLoaded', () => {
       if (r.pt) {
         r.card.classList.add('has-data');
         const { r: cr, g: cg, b: cb } = r.pt.rawRgb;
-        valEl.textContent = `RGB(${cr}, ${cg}, ${cb})`;
-        swatchEl.style.backgroundColor = `rgb(${cr}, ${cg}, ${cb})`;
+        if (valEl) valEl.textContent = `RGB(${cr}, ${cg}, ${cb})`;
+        if (swatchEl) swatchEl.style.backgroundColor = `rgb(${cr}, ${cg}, ${cb})`;
       } else {
         r.card.classList.remove('has-data');
-        valEl.textContent = 'Tap Photo';
-        swatchEl.style.backgroundColor = '#E2E8F0';
+        if (valEl) valEl.textContent = 'Tap Photo';
+        if (swatchEl) swatchEl.style.backgroundColor = '#E2E8F0';
       }
     });
   }
@@ -988,24 +1028,26 @@ document.addEventListener('DOMContentLoaded', () => {
   // ==========================================
   // 10. CORE DOSE COMPUTATION & HIGH-RES CALIBRATION
   // ==========================================
-  computeDoseBtn.addEventListener('click', () => {
-    if (state.tapState < 3) return;
+  if (computeDoseBtn) {
+    computeDoseBtn.addEventListener('click', () => {
+      if (state.tapState < 3) return;
 
-    const currentHours = parseFloat(shiftHoursInput?.value) || parseFloat(resultShiftInput?.value) || state.shiftHours || 8.0;
-    state.shiftHours = currentHours;
+      const currentHours = parseFloat(shiftHoursInput ? shiftHoursInput.value : 8.0) || parseFloat(resultShiftInput ? resultShiftInput.value : 8.0) || state.shiftHours || 8.0;
+      state.shiftHours = currentHours;
 
-    const result = computeDoseAlgorithm(
-      state.tapPoints[0].rawRgb,
-      state.tapPoints[1].rawRgb,
-      state.tapPoints[2].rawRgb
-    );
+      const result = computeDoseAlgorithm(
+        state.tapPoints[0].rawRgb,
+        state.tapPoints[1].rawRgb,
+        state.tapPoints[2].rawRgb
+      );
 
-    state.latestResult = result;
-    autoSaveResultToDatabase(result);
+      state.latestResult = result;
+      autoSaveResultToDatabase(result);
 
-    displayResult(result);
-    switchScreen('result-screen');
-  });
+      displayResult(result);
+      switchScreen('result-screen');
+    });
+  }
 
   function computeDoseAlgorithm(whiteRef, greyRef, stripRaw) {
     const scaleR = whiteRef.r > 0 ? 255 / whiteRef.r : 1;
@@ -1019,14 +1061,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const luminance = 0.299 * correctedR + 0.587 * correctedG + 0.114 * correctedB;
     const darkness = Math.min(255, Math.max(0, 255 - luminance));
 
-    // High-Resolution 500-point continuous calibration lookup
     const dose = typeof getCalibratedDose === 'function' ? getCalibratedDose(darkness) : interpolateDose(darkness, calibrationCurve);
     
-    // Dynamic Time-Weighted Average Concentration in ppm
     const shiftHours = Math.max(0.1, state.shiftHours || 8.0);
     const twaPpm = (dose / shiftHours);
 
-    // Occupational Safety Evaluation (Dose & TWA Concentration)
     let status = 'Normal';
     let statusClass = 'status-normal';
 
@@ -1083,7 +1122,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     state.logs.unshift(logEntry);
     localStorage.setItem('h2s_dosimeter_logs', JSON.stringify(state.logs));
-    savedDbWorkerId.textContent = res.workerId;
+    if (savedDbWorkerId) savedDbWorkerId.textContent = res.workerId;
   }
 
   function interpolateDose(darkness, curve) {
@@ -1109,37 +1148,44 @@ document.addEventListener('DOMContentLoaded', () => {
   // 11. DISPLAY RESULT & CONTINUOUS CURVE CHART
   // ==========================================
   function displayResult(res) {
-    resultDoseVal.textContent = res.dose;
-    resultTwaVal.textContent = res.twaPpm;
-    resultShiftHoursLabel.textContent = res.shiftHours.toFixed(1);
+    if (resultDoseVal) resultDoseVal.textContent = res.dose;
+    if (resultTwaVal) resultTwaVal.textContent = res.twaPpm;
+    if (resultShiftHoursLabel) resultShiftHoursLabel.textContent = res.shiftHours.toFixed(1);
 
-    resultStatusBadge.textContent = res.status;
-    resultStatusBadge.className = `status-badge ${res.statusClass}`;
+    if (resultStatusBadge) {
+      resultStatusBadge.textContent = res.status;
+      resultStatusBadge.className = `status-badge ${res.statusClass}`;
+    }
 
     const rawRgbStr = `rgb(${res.stripRaw.r}, ${res.stripRaw.g}, ${res.stripRaw.b})`;
     const corrRgbStr = `rgb(${res.correctedStrip.r}, ${res.correctedStrip.g}, ${res.correctedStrip.b})`;
 
-    rawSwatch.style.backgroundColor = rawRgbStr;
-    correctedSwatch.style.backgroundColor = corrRgbStr;
+    if (rawSwatch) rawSwatch.style.backgroundColor = rawRgbStr;
+    if (correctedSwatch) correctedSwatch.style.backgroundColor = corrRgbStr;
 
-    rawRgbText.textContent = `RGB(${res.stripRaw.r}, ${res.stripRaw.g}, ${res.stripRaw.b})`;
-    correctedRgbText.textContent = `RGB(${res.correctedStrip.r}, ${res.correctedStrip.g}, ${res.correctedStrip.b})`;
+    if (rawRgbText) rawRgbText.textContent = `RGB(${res.stripRaw.r}, ${res.stripRaw.g}, ${res.stripRaw.b})`;
+    if (correctedRgbText) correctedRgbText.textContent = `RGB(${res.correctedStrip.r}, ${res.correctedStrip.g}, ${res.correctedStrip.b})`;
 
-    techDetailsBox.innerHTML = `
-      <div><strong>Worker ID:</strong> ${res.workerId} (QR Verified) | <strong>Date:</strong> ${res.shiftDate}</div>
-      <div><strong>Shift Duration:</strong> ${res.shiftHours.toFixed(1)} hrs | <strong>TWA Conc:</strong> ${res.twaPpm} ppm</div>
-      <div><strong>Scale Factors:</strong> R:${res.scaleFactors.r}, G:${res.scaleFactors.g}, B:${res.scaleFactors.b}</div>
-      <div><strong>Luminance:</strong> ${res.luminance} | <strong>Darkness Index:</strong> ${res.darkness} / 255.0</div>
-      <div><strong>Raw RGB:</strong> ${rawRgbStr} | <strong>Corrected RGB:</strong> ${corrRgbStr}</div>
-    `;
+    if (techDetailsBox) {
+      techDetailsBox.innerHTML = `
+        <div><strong>Worker ID:</strong> ${res.workerId} (QR Verified) | <strong>Date:</strong> ${res.shiftDate}</div>
+        <div><strong>Shift Duration:</strong> ${res.shiftHours.toFixed(1)} hrs | <strong>TWA Conc:</strong> ${res.twaPpm} ppm</div>
+        <div><strong>Scale Factors:</strong> R:${res.scaleFactors.r}, G:${res.scaleFactors.g}, B:${res.scaleFactors.b}</div>
+        <div><strong>Luminance:</strong> ${res.luminance} | <strong>Darkness Index:</strong> ${res.darkness} / 255.0</div>
+        <div><strong>Raw RGB:</strong> ${rawRgbStr} | <strong>Corrected RGB:</strong> ${corrRgbStr}</div>
+      `;
+    }
 
     renderContinuousCalibrationChart(resultCurveChartContainer, res.darknessNum, res.doseNum);
 
-    state.expiryValid = expiryToggle.checked;
-    updateExpiryUI();
+    if (expiryToggle) {
+      state.expiryValid = expiryToggle.checked;
+      updateExpiryUI();
+    }
   }
 
   function renderContinuousCalibrationChart(container, activeDarkness, activeDose) {
+    if (!container) return;
     container.innerHTML = '';
     const svgWidth = 500;
     const svgHeight = 160;
@@ -1179,58 +1225,65 @@ document.addEventListener('DOMContentLoaded', () => {
     container.innerHTML = svgHtml;
   }
 
-  expiryToggle.addEventListener('change', () => {
-    state.expiryValid = expiryToggle.checked;
-    updateExpiryUI();
-  });
+  if (expiryToggle) {
+    expiryToggle.addEventListener('change', () => {
+      state.expiryValid = expiryToggle.checked;
+      updateExpiryUI();
+    });
+  }
 
   function updateExpiryUI() {
     if (state.expiryValid) {
-      expiredBanner.style.display = 'none';
-      resultDoseCard.style.opacity = '1';
-      resultDoseCard.style.pointerEvents = 'auto';
+      if (expiredBanner) expiredBanner.style.display = 'none';
+      if (resultDoseCard) {
+        resultDoseCard.style.opacity = '1';
+        resultDoseCard.style.pointerEvents = 'auto';
+      }
     } else {
-      expiredBanner.style.display = 'flex';
-      resultDoseCard.style.opacity = '0.4';
-      resultDoseCard.style.pointerEvents = 'none';
+      if (expiredBanner) expiredBanner.style.display = 'flex';
+      if (resultDoseCard) {
+        resultDoseCard.style.opacity = '0.4';
+        resultDoseCard.style.pointerEvents = 'none';
+      }
     }
   }
 
-  techDetailsToggle.addEventListener('click', () => {
-    if (techDetailsBox.style.display === 'none' || !techDetailsBox.style.display) {
-      techDetailsBox.style.display = 'flex';
-      techDetailsToggle.textContent = 'Hide Mathematical Diagnostics ▲';
-    } else {
-      techDetailsBox.style.display = 'none';
-      techDetailsToggle.textContent = 'View Mathematical Diagnostics ▼';
-    }
-  });
+  if (techDetailsToggle) {
+    techDetailsToggle.addEventListener('click', () => {
+      if (techDetailsBox.style.display === 'none' || !techDetailsBox.style.display) {
+        techDetailsBox.style.display = 'flex';
+        techDetailsToggle.textContent = 'Hide Mathematical Diagnostics ▲';
+      } else {
+        techDetailsBox.style.display = 'none';
+        techDetailsToggle.textContent = 'View Mathematical Diagnostics ▼';
+      }
+    });
+  }
 
   // ==========================================
   // 12. ROLE-BASED DASHBOARD & COMPLIANCE LOG OPERATIONS
   // ==========================================
   function renderDashboard() {
-    const query = (logSearchInput.value || '').toLowerCase().trim();
+    if (!logTableBody) return;
+    const query = (logSearchInput ? logSearchInput.value : '').toLowerCase().trim();
     const activeId = state.activeWorkerId || state.workerId || 'EMP-101';
 
     let roleFilteredLogs = [];
     if (state.userRole === 'admin') {
-      // Admin sees entire company dataset
       roleFilteredLogs = state.logs.filter(log => {
         return log.workerId.toLowerCase().includes(query) || (log.shiftDate && log.shiftDate.includes(query));
       });
-      statTotal.textContent = state.logs.length;
-      statNormal.textContent = state.logs.filter(l => l.status.includes('Normal')).length;
-      statElevatedHigh.textContent = state.logs.filter(l => !l.status.includes('Normal')).length;
+      if (statTotal) statTotal.textContent = state.logs.length;
+      if (statNormal) statNormal.textContent = state.logs.filter(l => l.status.includes('Normal')).length;
+      if (statElevatedHigh) statElevatedHigh.textContent = state.logs.filter(l => !l.status.includes('Normal')).length;
     } else {
-      // Worker strictly sees ONLY their own records
       const myLogs = state.logs.filter(log => log.workerId.toUpperCase() === activeId.toUpperCase());
       roleFilteredLogs = myLogs.filter(log => {
         return (log.shiftDate && log.shiftDate.includes(query)) || (log.scannedAt && log.scannedAt.toLowerCase().includes(query));
       });
-      statTotal.textContent = myLogs.length;
-      statNormal.textContent = myLogs.filter(l => l.status.includes('Normal')).length;
-      statElevatedHigh.textContent = myLogs.filter(l => !l.status.includes('Normal')).length;
+      if (statTotal) statTotal.textContent = myLogs.length;
+      if (statNormal) statNormal.textContent = myLogs.filter(l => l.status.includes('Normal')).length;
+      if (statElevatedHigh) statElevatedHigh.textContent = myLogs.filter(l => !l.status.includes('Normal')).length;
     }
 
     logTableBody.innerHTML = '';
@@ -1268,73 +1321,79 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  logSearchInput.addEventListener('input', renderDashboard);
+  if (logSearchInput) {
+    logSearchInput.addEventListener('input', renderDashboard);
+  }
 
-  exportCsvBtn.addEventListener('click', () => {
-    const activeId = state.activeWorkerId || state.workerId || 'EMP-101';
-    let logsToExport = [];
-    let filename = '';
+  if (exportCsvBtn) {
+    exportCsvBtn.addEventListener('click', () => {
+      const activeId = state.activeWorkerId || state.workerId || 'EMP-101';
+      let logsToExport = [];
+      let filename = '';
 
-    if (state.userRole === 'admin') {
-      logsToExport = state.logs;
-      filename = `h2s_master_company_database_${new Date().toISOString().split('T')[0]}.csv`;
-    } else {
-      logsToExport = state.logs.filter(l => l.workerId.toUpperCase() === activeId.toUpperCase());
-      filename = `h2s_exposure_history_${activeId}_${new Date().toISOString().split('T')[0]}.csv`;
-    }
+      if (state.userRole === 'admin') {
+        logsToExport = state.logs;
+        filename = `h2s_master_company_database_${new Date().toISOString().split('T')[0]}.csv`;
+      } else {
+        logsToExport = state.logs.filter(l => l.workerId.toUpperCase() === activeId.toUpperCase());
+        filename = `h2s_exposure_history_${activeId}_${new Date().toISOString().split('T')[0]}.csv`;
+      }
 
-    if (logsToExport.length === 0) {
-      alert(state.userRole === 'admin' ? 'No company records available to export.' : `No personal records found for ${activeId} to export.`);
-      return;
-    }
+      if (logsToExport.length === 0) {
+        alert(state.userRole === 'admin' ? 'No company records available to export.' : `No personal records found for ${activeId} to export.`);
+        return;
+      }
 
-    const headers = ['Worker ID', 'Shift Date', 'Shift Duration (hrs)', 'Cumulative Dose (ppm·hr)', 'TWA Concentration (ppm)', 'Status', 'QR Verified', 'Scanned At'];
-    const csvRows = [headers.join(',')];
+      const headers = ['Worker ID', 'Shift Date', 'Shift Duration (hrs)', 'Cumulative Dose (ppm·hr)', 'TWA Concentration (ppm)', 'Status', 'QR Verified', 'Scanned At'];
+      const csvRows = [headers.join(',')];
 
-    logsToExport.forEach(log => {
-      const hours = log.shiftHours || 8.0;
-      const twa = log.twaPpm || (parseFloat(log.dose) / hours).toFixed(2);
+      logsToExport.forEach(log => {
+        const hours = log.shiftHours || 8.0;
+        const twa = log.twaPpm || (parseFloat(log.dose) / hours).toFixed(2);
 
-      const row = [
-        `"${log.workerId.replace(/"/g, '""')}"`,
-        `"${log.shiftDate}"`,
-        `"${hours}"`,
-        `"${log.dose}"`,
-        `"${twa}"`,
-        `"${log.status}"`,
-        `"${log.qrVerified || 'Yes'}"`,
-        `"${log.scannedAt}"`
-      ];
-      csvRows.push(row.join(','));
+        const row = [
+          `"${log.workerId.replace(/"/g, '""')}"`,
+          `"${log.shiftDate}"`,
+          `"${hours}"`,
+          `"${log.dose}"`,
+          `"${twa}"`,
+          `"${log.status}"`,
+          `"${log.qrVerified || 'Yes'}"`,
+          `"${log.scannedAt}"`
+        ];
+        csvRows.push(row.join(','));
+      });
+
+      const csvContent = csvRows.join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     });
+  }
 
-    const csvContent = csvRows.join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
+  if (clearLogBtn) {
+    clearLogBtn.addEventListener('click', () => {
+      if (state.userRole !== 'admin') {
+        alert('Unauthorized action: Only Safety Admins can clear the database.');
+        return;
+      }
 
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  });
+      if (state.logs.length === 0) return;
 
-  clearLogBtn.addEventListener('click', () => {
-    if (state.userRole !== 'admin') {
-      alert('Unauthorized action: Only Safety Admins can clear the database.');
-      return;
-    }
-
-    if (state.logs.length === 0) return;
-
-    if (confirm('⚠️ ADMIN ACTION: Are you sure you want to permanently clear the ENTIRE company database? This cannot be undone.')) {
-      state.logs = [];
-      localStorage.removeItem('h2s_dosimeter_logs');
-      renderDashboard();
-    }
-  });
+      if (confirm('⚠️ ADMIN ACTION: Are you sure you want to permanently clear the ENTIRE company database? This cannot be undone.')) {
+        state.logs = [];
+        localStorage.removeItem('h2s_dosimeter_logs');
+        renderDashboard();
+      }
+    });
+  }
 
   function escapeHtml(str) {
     return String(str).replace(/[&<>"']/g, (m) => {

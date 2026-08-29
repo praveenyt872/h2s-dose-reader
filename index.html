@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>H2S Dose Reader — High-Res Calibration, TWA Engine & Role-Based Privacy</title>
 
-  <!-- External Stylesheets -->
-  <link rel="stylesheet" href="style.css">
+  <!-- External Stylesheets with Cache-Buster -->
+  <link rel="stylesheet" href="style.css?v=2.1">
 </head>
 <body>
 
@@ -25,16 +25,16 @@
       </div>
 
       <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-        <!-- Role Status Badge -->
-        <span id="headerRoleTag" class="role-tag role-worker" style="cursor: pointer;" title="Click to Switch Role">👤 Worker</span>
+        <!-- Role Status Badge (Clickable to switch) -->
+        <span id="headerRoleTag" class="role-tag role-worker" style="cursor: pointer;" onclick="openAdminLoginModal()" title="Click to Switch Role">👤 Worker</span>
 
         <!-- Admin Portal Switch Button -->
-        <button type="button" id="adminPortalToggleBtn" class="btn-role-action" title="Safety Officer Admin Portal">
+        <button type="button" id="adminPortalToggleBtn" class="btn-role-action" onclick="handleAdminHeaderBtnClick()" title="Safety Officer Admin Portal">
           🛡️ Admin Portal
         </button>
 
         <!-- Register Worker QR Button -->
-        <button type="button" id="headerQrRegisterBtn" class="btn-qr-icon" title="Register New Worker QR">
+        <button type="button" id="headerQrRegisterBtn" class="btn-qr-icon" onclick="openQrModalWindow()" title="Register New Worker QR">
           <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
           + Register QR
         </button>
@@ -333,7 +333,7 @@
       <div id="workerPrivacyBanner" class="privacy-banner-card">
         <div style="font-weight: 800; font-size: 0.9rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px;">
           <span>🔒 Worker Privacy Protection Active</span>
-          <button type="button" id="dashboardAdminUnlockBtn" class="btn-role-action" style="background: #3B82F6; color: #FFFFFF; font-size: 0.72rem; padding: 3px 8px;">
+          <button type="button" id="dashboardAdminUnlockBtn" class="btn-role-action" onclick="openAdminLoginModal()" style="background: #3B82F6; color: #FFFFFF; font-size: 0.75rem; padding: 4px 10px;">
             🛡️ Safety Admin Login
           </button>
         </div>
@@ -344,11 +344,11 @@
 
       <!-- Admin Master Banner (Visible in Admin Mode) -->
       <div id="adminMasterBanner" class="admin-banner-card" style="display: none;">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
           <div style="font-weight: 800; font-size: 0.9rem; display: flex; align-items: center; gap: 6px;">
             🛡️ Safety Admin Master View — Full Access
           </div>
-          <button type="button" id="exitAdminModeBtn" class="btn-exit-admin">
+          <button type="button" id="exitAdminModeBtn" class="btn-exit-admin" onclick="exitAdminMode()">
             🚪 Exit Admin View
           </button>
         </div>
@@ -415,13 +415,13 @@
   </div>
 
   <!-- ADMIN AUTHENTICATION LOGIN MODAL -->
-  <div id="adminLoginModal" class="modal-backdrop" style="display: none; z-index: 9999;">
+  <div id="adminLoginModal" class="modal-backdrop" style="display: none; z-index: 99999;">
     <div class="modal-content" style="max-width: 380px; text-align: center; border: 2px solid #10B981;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
         <h3 style="font-size: 1.1rem; font-weight: 800; display: flex; align-items: center; gap: 6px; color: #065F46;">
           🛡️ Safety Officer Admin Portal
         </h3>
-        <button type="button" id="closeAdminModalBtn" style="background: none; border: none; font-size: 1.6rem; cursor: pointer; color: #64748B;">&times;</button>
+        <button type="button" id="closeAdminModalBtn" onclick="closeAdminModal()" style="background: none; border: none; font-size: 1.6rem; cursor: pointer; color: #64748B;">&times;</button>
       </div>
 
       <p style="font-size: 0.82rem; color: #64748B;">
@@ -438,10 +438,10 @@
       </div>
 
       <div class="form-row" style="margin-bottom: 8px;">
-        <button type="button" id="autoFillPinBtn" class="btn btn-outline" style="font-size: 0.75rem; min-height: 40px;">
+        <button type="button" id="autoFillPinBtn" onclick="autoFillDemoPin()" class="btn btn-outline" style="font-size: 0.75rem; min-height: 40px;">
           ⚡ Auto-Fill PIN (admin123)
         </button>
-        <button type="button" id="submitAdminPinBtn" class="btn btn-primary" style="font-size: 0.85rem; min-height: 40px; background: #10B981; color: #FFFFFF;">
+        <button type="button" id="submitAdminPinBtn" onclick="handleAdminPinSubmit()" class="btn btn-primary" style="font-size: 0.85rem; min-height: 40px; background: #10B981; color: #FFFFFF;">
           🔓 Unlock Admin
         </button>
       </div>
@@ -453,7 +453,7 @@
   </div>
 
   <!-- LIVE CAMERA QR SCANNER MODAL -->
-  <div id="liveCameraModal" class="modal-backdrop" style="display: none; z-index: 9999;">
+  <div id="liveCameraModal" class="modal-backdrop" style="display: none; z-index: 99999;">
     <div class="modal-content" style="max-width: 480px; text-align: center;">
       <div style="display: flex; justify-content: space-between; align-items: center;">
         <h3 style="font-size: 1.1rem; font-weight: 800; display: flex; align-items: center; gap: 6px;">
@@ -486,7 +486,7 @@
   </div>
 
   <!-- WORKER QR CODE DISPLAY & PNG DOWNLOAD MODAL -->
-  <div id="qrBadgeModal" class="modal-backdrop" style="display: none; z-index: 9999;">
+  <div id="qrBadgeModal" class="modal-backdrop" style="display: none; z-index: 99999;">
     <div class="modal-content print-badge-container" style="text-align: center;">
       <div class="hazard-bar" style="border-radius: 4px 4px 0 0;"></div>
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
@@ -541,7 +541,7 @@
 
   <script src="qrcode.min.js"></script>
   <script src="jsqr.js"></script>
-  <script src="calibration.js"></script>
-  <script src="script.js"></script>
+  <script src="calibration.js?v=2.1"></script>
+  <script src="script.js?v=2.1"></script>
 </body>
 </html>
