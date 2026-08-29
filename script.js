@@ -1,6 +1,6 @@
 /**
  * H2S Dose Reader — Core Application Script
- * Mandatory Live Camera QR Gatekeeper, Manual Worker Registration & Exact Reference QR PNG Exporter
+ * High-Resolution Calibration Curve & Dynamic Shift Duration TWA Engine
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
     currentScreen: 'scan-screen',
     workerId: '',
     shiftDate: new Date().toISOString().split('T')[0],
+    shiftHours: 8.0, // Default shift duration in hours
     qrVerified: false,
     verifiedWorker: null,
     loadedImage: null,
@@ -23,6 +24,9 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   // DOM Elements
+  const shiftHoursInput = document.getElementById('shiftHoursInput');
+  const shiftPresetBtns = document.querySelectorAll('.shift-preset-btn');
+
   const stripScanBtn = document.getElementById('stripScanBtn');
   const fileInput = document.getElementById('fileInput');
   const demoSampleBtn = document.getElementById('demoSampleBtn');
@@ -62,8 +66,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const qrcodeDisplay = document.getElementById('qrcodeDisplay');
   const badgeWorkerIdText = document.getElementById('badgeWorkerIdText');
   const badgeShiftDateText = document.getElementById('badgeShiftDateText');
+  const badgeShiftHoursText = document.getElementById('badgeShiftHoursText');
   const modalWorkerIdInput = document.getElementById('modalWorkerIdInput');
   const modalShiftDateInput = document.getElementById('modalShiftDateInput');
+  const modalShiftHoursInput = document.getElementById('modalShiftHoursInput');
 
   // Readout Cards
   const readoutWhite = document.getElementById('readoutWhite');
@@ -72,6 +78,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Result DOM Elements
   const resultDoseVal = document.getElementById('resultDoseVal');
+  const resultTwaVal = document.getElementById('resultTwaVal');
+  const resultShiftHoursLabel = document.getElementById('resultShiftHoursLabel');
   const resultStatusBadge = document.getElementById('resultStatusBadge');
   const savedDbWorkerId = document.getElementById('savedDbWorkerId');
   const rawSwatch = document.getElementById('rawSwatch');
@@ -100,9 +108,71 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize Defaults
   modalShiftDateInput.value = state.shiftDate;
   modalWorkerIdInput.value = 'EMP-101';
+  modalShiftHoursInput.value = '8.0';
+  shiftHoursInput.value = '8.0';
 
   // ==========================================
-  // 2. Navigation & Screen Switching
+  // 2. SHIFT DURATION PRESETS & INPUT HANDLING
+  // ==========================================
+  shiftPresetBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      shiftPresetBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const hours = parseFloat(btn.dataset.hours) || 8.0;
+      state.shiftHours = hours;
+      shiftHoursInput.value = hours.toFixed(1);
+
+      if (state.latestResult) {
+        recomputeDoseWithNewHours(hours);
+      }
+    });
+  });
+
+  shiftHoursInput.addEventListener('input', (e) => {
+    const val = parseFloat(e.target.value);
+    if (!isNaN(val) && val > 0) {
+      state.shiftHours = val;
+      shiftPresetBtns.forEach(b => {
+        if (parseFloat(b.dataset.hours) === val) {
+          b.classList.add('active');
+        } else {
+          b.classList.remove('active');
+        }
+      });
+
+      if (state.latestResult) {
+        recomputeDoseWithNewHours(val);
+      }
+    }
+  });
+
+  function recomputeDoseWithNewHours(hours) {
+    if (!state.latestResult) return;
+    const dose = state.latestResult.doseNum;
+    const twaPpm = calculateTwaConcentration(dose, hours);
+    state.latestResult.shiftHours = hours;
+    state.latestResult.twaPpm = twaPpm;
+
+    // Re-evaluate safety status based on updated shift duration
+    let status = 'Normal';
+    let statusClass = 'status-normal';
+
+    if (dose >= DOSE_THRESHOLD_HIGH || twaPpm >= TWA_THRESHOLD_HIGH) {
+      status = 'High — Action Required';
+      statusClass = 'status-high';
+    } else if (dose >= DOSE_THRESHOLD_LOW || twaPpm >= TWA_THRESHOLD_LOW) {
+      status = 'Elevated — Monitor';
+      statusClass = 'status-elevated';
+    }
+
+    state.latestResult.status = status;
+    state.latestResult.statusClass = statusClass;
+
+    displayResult(state.latestResult);
+  }
+
+  // ==========================================
+  // 3. Navigation & Screen Switching
   // ==========================================
   const navTabs = document.querySelectorAll('.tab-btn');
   const screens = document.querySelectorAll('.screen-view');
@@ -137,7 +207,7 @@ document.addEventListener('DOMContentLoaded', () => {
   window.switchScreen = switchScreen;
 
   // ==========================================
-  // 3. STEP 1: MANDATORY LIVE CAMERA QR SCANNER
+  // 4. STEP 1: MANDATORY LIVE CAMERA QR SCANNER
   // ==========================================
   startLiveQrCameraBtn.addEventListener('click', startLiveCameraScan);
 
@@ -234,11 +304,13 @@ document.addEventListener('DOMContentLoaded', () => {
   function handleSuccessfulQrScan(qrData) {
     let scannedWorkerId = qrData;
     let scannedShiftDate = new Date().toISOString().split('T')[0];
+    let scannedShiftHours = 8.0;
 
     try {
       const parsed = JSON.parse(qrData);
       if (parsed.workerId) scannedWorkerId = parsed.workerId;
       if (parsed.shiftDate) scannedShiftDate = parsed.shiftDate;
+      if (parsed.shiftHours) scannedShiftHours = parseFloat(parsed.shiftHours) || 8.0;
     } catch (e) {
       // Raw string
     }
@@ -246,9 +318,11 @@ document.addEventListener('DOMContentLoaded', () => {
     stopLiveCamera();
 
     state.qrVerified = true;
-    state.verifiedWorker = { workerId: scannedWorkerId, shiftDate: scannedShiftDate };
+    state.verifiedWorker = { workerId: scannedWorkerId, shiftDate: scannedShiftDate, shiftHours: scannedShiftHours };
     state.workerId = scannedWorkerId;
     state.shiftDate = scannedShiftDate;
+    state.shiftHours = scannedShiftHours;
+    shiftHoursInput.value = scannedShiftHours.toFixed(1);
 
     vWorkerId.textContent = scannedWorkerId;
     vShiftDate.textContent = scannedShiftDate;
@@ -261,28 +335,31 @@ document.addEventListener('DOMContentLoaded', () => {
     stripScanControls.style.opacity = '1';
     stripScanControls.style.pointerEvents = 'auto';
 
-    alert(`✅ QR VERIFIED! Worker ${scannedWorkerId} identified in Database.\n\nStep 2 (Strip Scan) is now UNLOCKED.`);
+    alert(`✅ QR VERIFIED! Worker ${scannedWorkerId} identified.\nShift Duration: ${scannedShiftHours} hours.\n\nStep 2 (Strip Scan) is now UNLOCKED.`);
   }
 
   // ==========================================
-  // 4. WORKER QR REGISTRATION & PNG EXPORTER MODAL
+  // 5. WORKER QR REGISTRATION & PNG EXPORTER MODAL
   // ==========================================
   function generateAndRegisterWorkerQr() {
     let workerId = modalWorkerIdInput.value.trim() || 'EMP-101';
     let shiftDate = modalShiftDateInput.value || state.shiftDate;
+    let shiftHours = parseFloat(modalShiftHoursInput.value) || 8.0;
 
     modalWorkerIdInput.value = workerId;
     modalShiftDateInput.value = shiftDate;
+    modalShiftHoursInput.value = shiftHours.toFixed(1);
 
-    renderQrModalCode(workerId, shiftDate);
+    renderQrModalCode(workerId, shiftDate, shiftHours);
     qrBadgeModal.style.display = 'flex';
   }
 
-  function renderQrModalCode(workerId, shiftDate) {
+  function renderQrModalCode(workerId, shiftDate, shiftHours) {
     const existingIndex = state.dbWorkers.findIndex(w => w.workerId === workerId);
     const workerRecord = {
       workerId,
       shiftDate,
+      shiftHours,
       registeredAt: new Date().toLocaleString(),
       status: 'Registered / Awaiting Scan'
     };
@@ -296,10 +373,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     badgeWorkerIdText.textContent = workerId;
     badgeShiftDateText.textContent = shiftDate;
+    badgeShiftHoursText.textContent = shiftHours.toFixed(1);
 
     const payload = JSON.stringify({
       workerId,
       shiftDate,
+      shiftHours,
       app: 'H2S_Dose_Reader'
     });
 
@@ -319,19 +398,28 @@ document.addEventListener('DOMContentLoaded', () => {
   modalWorkerIdInput.addEventListener('input', (e) => {
     const newWorkerId = e.target.value.trim() || 'EMP-101';
     const currentShiftDate = modalShiftDateInput.value || state.shiftDate;
-    renderQrModalCode(newWorkerId, currentShiftDate);
+    const currentShiftHours = parseFloat(modalShiftHoursInput.value) || 8.0;
+    renderQrModalCode(newWorkerId, currentShiftDate, currentShiftHours);
   });
 
   modalShiftDateInput.addEventListener('change', (e) => {
     const currentWorkerId = modalWorkerIdInput.value.trim() || 'EMP-101';
     const newShiftDate = e.target.value || state.shiftDate;
-    renderQrModalCode(currentWorkerId, newShiftDate);
+    const currentShiftHours = parseFloat(modalShiftHoursInput.value) || 8.0;
+    renderQrModalCode(currentWorkerId, newShiftDate, currentShiftHours);
+  });
+
+  modalShiftHoursInput.addEventListener('input', (e) => {
+    const currentWorkerId = modalWorkerIdInput.value.trim() || 'EMP-101';
+    const currentShiftDate = modalShiftDateInput.value || state.shiftDate;
+    const newShiftHours = parseFloat(e.target.value) || 8.0;
+    renderQrModalCode(currentWorkerId, currentShiftDate, newShiftHours);
   });
 
   headerQrRegisterBtn.addEventListener('click', generateAndRegisterWorkerQr);
   closeQrModalBtn.addEventListener('click', () => qrBadgeModal.style.display = 'none');
 
-  // DOWNLOAD EXACT REFERENCE SCANNABLE QR CODE (ROUNDED WHITE CARD WITH GOLD BORDER)
+  // DOWNLOAD EXACT REFERENCE SCANNABLE QR CODE
   downloadQrPngBtn.addEventListener('click', downloadQrCodePng);
 
   function downloadQrCodePng() {
@@ -345,17 +433,15 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    // High resolution 400x400 canvas matching exact reference image
     const exportCanvas = document.createElement('canvas');
     exportCanvas.width = 400;
     exportCanvas.height = 400;
     const eCtx = exportCanvas.getContext('2d');
 
-    // Draw Rounded White Card Box with Gold/Yellow Outline Border
     const pad = 10;
     const radius = 24;
-    const boxWidth = 400 - pad * 2; // 380
-    const boxHeight = 400 - pad * 2; // 380
+    const boxWidth = 400 - pad * 2;
+    const boxHeight = 400 - pad * 2;
 
     eCtx.beginPath();
     if (typeof eCtx.roundRect === 'function') {
@@ -369,23 +455,19 @@ document.addEventListener('DOMContentLoaded', () => {
       eCtx.closePath();
     }
 
-    // Fill Solid White
     eCtx.fillStyle = '#FFFFFF';
     eCtx.fill();
 
-    // Gold / Yellow Outline Stroke Border (matching reference image)
     eCtx.lineWidth = 5;
     eCtx.strokeStyle = '#FFC72C';
     eCtx.stroke();
 
-    // Draw QR Code matrix centered inside white card with quiet zone padding
     const qrSize = 310;
-    const qrX = (400 - qrSize) / 2; // 45px
-    const qrY = (400 - qrSize) / 2; // 45px
+    const qrX = (400 - qrSize) / 2;
+    const qrY = (400 - qrSize) / 2;
 
     eCtx.drawImage(sourceEl, qrX, qrY, qrSize, qrSize);
 
-    // Export PNG
     const dataUrl = exportCanvas.toDataURL('image/png');
     const a = document.createElement('a');
     a.href = dataUrl;
@@ -400,7 +482,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // ==========================================
-  // 5. STEP 2: STRIP SCAN & AUTO DETECTION
+  // 6. STEP 2: STRIP SCAN & AUTO DETECTION
   // ==========================================
   if (stripScanBtn) {
     stripScanBtn.addEventListener('click', (e) => {
@@ -437,7 +519,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   demoSampleBtn.addEventListener('click', () => {
     if (!state.qrVerified) {
-      handleSuccessfulQrScan(JSON.stringify({ workerId: 'EMP-101', shiftDate: state.shiftDate }));
+      handleSuccessfulQrScan(JSON.stringify({ workerId: 'EMP-101', shiftDate: state.shiftDate, shiftHours: state.shiftHours }));
     }
     generateDemoSamplePhoto();
     switchScreen('calibrate-screen');
@@ -512,7 +594,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ==========================================
-  // 6. AUTO-DETECTION ALGORITHM
+  // 7. AUTO-DETECTION ALGORITHM
   // ==========================================
   autoDetectBtn.addEventListener('click', autoDetectPatches);
 
@@ -577,7 +659,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ==========================================
-  // 7. TAP-POINT MANUAL CALIBRATION LOGIC
+  // 8. TAP-POINT MANUAL CALIBRATION LOGIC
   // ==========================================
   function resetPinState() {
     state.tapState = 0;
@@ -728,7 +810,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ==========================================
-  // 8. CORE DOSE COMPUTATION & AUTOMATIC DB SAVE
+  // 9. CORE DOSE COMPUTATION & HIGH-RES CALIBRATION
   // ==========================================
   computeDoseBtn.addEventListener('click', () => {
     if (state.tapState < 3) return;
@@ -758,15 +840,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const luminance = 0.299 * correctedR + 0.587 * correctedG + 0.114 * correctedB;
     const darkness = Math.min(255, Math.max(0, 255 - luminance));
 
-    const dose = interpolateDose(darkness, calibrationCurve);
+    // High-Resolution 500-point continuous calibration lookup
+    const dose = typeof getCalibratedDose === 'function' ? getCalibratedDose(darkness) : interpolateDose(darkness, calibrationCurve);
+    
+    // Dynamic Time-Weighted Average Concentration in ppm
+    const shiftHours = Math.max(0.1, state.shiftHours || 8.0);
+    const twaPpm = typeof calculateTwaConcentration === 'function' ? calculateTwaConcentration(dose, shiftHours) : Number((dose / shiftHours).toFixed(2));
 
+    // Occupational Safety Evaluation (Dose & TWA Concentration)
     let status = 'Normal';
     let statusClass = 'status-normal';
 
-    if (dose >= DOSE_THRESHOLD_HIGH) {
-      status = 'High — Review Required';
+    if (dose >= DOSE_THRESHOLD_HIGH || twaPpm >= TWA_THRESHOLD_HIGH) {
+      status = 'High — Action Required';
       statusClass = 'status-high';
-    } else if (dose >= DOSE_THRESHOLD_LOW) {
+    } else if (dose >= DOSE_THRESHOLD_LOW || twaPpm >= TWA_THRESHOLD_LOW) {
       status = 'Elevated — Monitor';
       statusClass = 'status-elevated';
     }
@@ -777,6 +865,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return {
       workerId,
       shiftDate,
+      shiftHours,
       whiteRef,
       greyRef,
       stripRaw,
@@ -787,9 +876,10 @@ document.addEventListener('DOMContentLoaded', () => {
       darknessNum: darkness,
       dose: dose.toFixed(1),
       doseNum: dose,
+      twaPpm: twaPpm.toFixed(2),
+      twaNum: twaPpm,
       status,
       statusClass,
-      calibrationCurveSnapshot: [...calibrationCurve],
       scannedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
     };
   }
@@ -799,14 +889,16 @@ document.addEventListener('DOMContentLoaded', () => {
       id: Date.now(),
       workerId: res.workerId,
       shiftDate: res.shiftDate,
+      shiftHours: res.shiftHours,
       dose: res.dose,
       doseNum: res.doseNum,
+      twaPpm: res.twaPpm,
+      twaNum: res.twaNum,
       darknessIndex: res.darkness,
       status: res.status,
       statusClass: res.statusClass,
       badgeValid: state.expiryValid ? 'Yes' : 'No (Expired)',
       qrVerified: 'Yes (Camera Stream)',
-      calibrationCurve: res.calibrationCurveSnapshot,
       scannedAt: new Date().toLocaleString()
     };
 
@@ -835,10 +927,12 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ==========================================
-  // 9. DISPLAY RESULT & CURVE CHART
+  // 10. DISPLAY RESULT & CONTINUOUS CURVE CHART
   // ==========================================
   function displayResult(res) {
     resultDoseVal.textContent = res.dose;
+    resultTwaVal.textContent = res.twaPpm;
+    resultShiftHoursLabel.textContent = res.shiftHours.toFixed(1);
 
     resultStatusBadge.textContent = res.status;
     resultStatusBadge.className = `status-badge ${res.statusClass}`;
@@ -854,48 +948,57 @@ document.addEventListener('DOMContentLoaded', () => {
 
     techDetailsBox.innerHTML = `
       <div><strong>Worker ID:</strong> ${res.workerId} (QR Verified) | <strong>Date:</strong> ${res.shiftDate}</div>
+      <div><strong>Shift Duration:</strong> ${res.shiftHours.toFixed(1)} hrs | <strong>TWA Conc:</strong> ${res.twaPpm} ppm</div>
       <div><strong>Scale Factors:</strong> R:${res.scaleFactors.r}, G:${res.scaleFactors.g}, B:${res.scaleFactors.b}</div>
-      <div><strong>Luminance:</strong> ${res.luminance} | <strong>Darkness Index:</strong> ${res.darkness} / 255</div>
+      <div><strong>Luminance:</strong> ${res.luminance} | <strong>Darkness Index:</strong> ${res.darkness} / 255.0</div>
       <div><strong>Raw RGB:</strong> ${rawRgbStr} | <strong>Corrected RGB:</strong> ${corrRgbStr}</div>
     `;
 
-    renderCalibrationChart(resultCurveChartContainer, res.darknessNum, res.doseNum);
+    renderContinuousCalibrationChart(resultCurveChartContainer, res.darknessNum, res.doseNum);
 
     state.expiryValid = expiryToggle.checked;
     updateExpiryUI();
   }
 
-  function renderCalibrationChart(container, activeDarkness, activeDose) {
+  function renderContinuousCalibrationChart(container, activeDarkness, activeDose) {
     container.innerHTML = '';
     const svgWidth = 500;
     const svgHeight = 160;
     const pad = 30;
 
-    const maxD = 80;
-    const maxK = 255;
+    const maxD = 110.0;
+    const maxK = 255.0;
 
-    const pointsSvg = calibrationCurve.map(pt => {
-      const x = pad + (pt.darkness / maxK) * (svgWidth - pad * 2);
-      const y = (svgHeight - pad) - (pt.dose / maxD) * (svgHeight - pad * 2);
-      return `${x},${y}`;
-    }).join(' ');
+    // Sample high-density curve points for smooth SVG polyline
+    const sampleStep = 5;
+    const pointsSvg = [];
+    for (let k = 0; k <= maxK; k += sampleStep) {
+      const dose = typeof getCalibratedDose === 'function' ? getCalibratedDose(k) : 0;
+      const x = pad + (k / maxK) * (svgWidth - pad * 2);
+      const y = (svgHeight - pad) - (dose / maxD) * (svgHeight - pad * 2);
+      pointsSvg.push(`${x.toFixed(1)},${y.toFixed(1)}`);
+    }
 
     const activeX = pad + (activeDarkness / maxK) * (svgWidth - pad * 2);
     const activeY = (svgHeight - pad) - (activeDose / maxD) * (svgHeight - pad * 2);
 
     const svgHtml = `
       <svg class="curve-chart-svg" viewBox="0 0 ${svgWidth} ${svgHeight}">
+        <!-- Axes -->
         <line x1="${pad}" y1="${svgHeight - pad}" x2="${svgWidth - 10}" y2="${svgHeight - pad}" stroke="#CBD5E1" stroke-width="2"/>
         <line x1="${pad}" y1="10" x2="${pad}" y2="${svgHeight - pad}" stroke="#CBD5E1" stroke-width="2"/>
         
-        <text x="${svgWidth / 2}" y="${svgHeight - 5}" font-size="10" fill="#64748B" font-weight="700" text-anchor="middle">Darkness Index Score (0 - 255)</text>
+        <!-- Axis Labels -->
+        <text x="${svgWidth / 2}" y="${svgHeight - 5}" font-size="10" fill="#64748B" font-weight="700" text-anchor="middle">Darkness Index (0.0 - 255.0)</text>
         <text x="10" y="${svgHeight / 2}" font-size="10" fill="#64748B" font-weight="700" text-anchor="middle" transform="rotate(-90 10 ${svgHeight / 2})">Dose (ppm·hr)</text>
 
-        <polyline points="${pointsSvg}" fill="none" stroke="#2563EB" stroke-width="3" stroke-linecap="round"/>
+        <!-- Smooth High-Res Polyline -->
+        <polyline points="${pointsSvg.join(' ')}" fill="none" stroke="#2563EB" stroke-width="3" stroke-linecap="round"/>
 
+        <!-- Active Measurement Marker -->
         <circle cx="${activeX}" cy="${activeY}" r="8" fill="#FFC72C" stroke="#0F172A" stroke-width="3"/>
-        <circle cx="${activeX}" cy="${activeY}" r="12" fill="#FFC72C" opacity="0.3"/>
-        <text x="${activeX + 10}" y="${activeY - 5}" font-size="11" font-weight="800" fill="#0F172A">${activeDose.toFixed(1)} ppm·hr</text>
+        <circle cx="${activeX}" cy="${activeY}" r="14" fill="#FFC72C" opacity="0.35"/>
+        <text x="${activeX + 10}" y="${activeY - 5}" font-size="11" font-weight="800" fill="#0F172A">${activeDose.toFixed(1)} ppm·hr (${(activeDose / state.shiftHours).toFixed(2)} ppm TWA)</text>
       </svg>
     `;
 
@@ -930,7 +1033,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // ==========================================
-  // 10. DASHBOARD & DATABASE LOG OPERATIONS
+  // 11. DASHBOARD & DATABASE LOG OPERATIONS
   // ==========================================
   function renderDashboard() {
     const query = (logSearchInput.value || '').toLowerCase().trim();
@@ -945,7 +1048,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (filteredLogs.length === 0) {
       logTableBody.innerHTML = `
         <tr>
-          <td colspan="6" class="empty-log-state">
+          <td colspan="8" class="empty-log-state">
             ${query ? 'No matching database records found for Worker ID.' : 'No compliance logs in database yet.'}
           </td>
         </tr>
@@ -955,10 +1058,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     filteredLogs.forEach(log => {
       const tr = document.createElement('tr');
+      const hoursDisplay = log.shiftHours ? `${parseFloat(log.shiftHours).toFixed(1)}h` : '8.0h';
+      const twaDisplay = log.twaPpm ? `${log.twaPpm} ppm` : `${(parseFloat(log.dose) / 8).toFixed(2)} ppm`;
+
       tr.innerHTML = `
         <td><strong>${escapeHtml(log.workerId)}</strong></td>
         <td>${escapeHtml(log.shiftDate)}</td>
+        <td><span style="background: #E2E8F0; padding: 2px 6px; border-radius: 4px; font-weight: 700; font-size: 0.75rem;">${escapeHtml(hoursDisplay)}</span></td>
         <td><strong>${escapeHtml(log.dose)} ppm·hr</strong></td>
+        <td><strong style="color: #2563EB;">${escapeHtml(twaDisplay)}</strong></td>
         <td><span class="status-badge ${log.statusClass}" style="font-size:0.7rem; padding:2px 8px;">${escapeHtml(log.status)}</span></td>
         <td><span class="badge-valid-tag valid-yes">✓ ${escapeHtml(log.qrVerified || 'Camera Stream')}</span></td>
         <td style="color:#64748B; font-size:0.75rem;">${escapeHtml(log.scannedAt)}</td>
@@ -975,14 +1083,19 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const headers = ['Worker ID', 'Shift Date', 'Dose (ppm·hr)', 'Status', 'QR Verified', 'Scanned At'];
+    const headers = ['Worker ID', 'Shift Date', 'Shift Duration (hrs)', 'Cumulative Dose (ppm·hr)', 'TWA Concentration (ppm)', 'Status', 'QR Verified', 'Scanned At'];
     const csvRows = [headers.join(',')];
 
     state.logs.forEach(log => {
+      const hours = log.shiftHours || 8.0;
+      const twa = log.twaPpm || (parseFloat(log.dose) / hours).toFixed(2);
+
       const row = [
         `"${log.workerId.replace(/"/g, '""')}"`,
         `"${log.shiftDate}"`,
+        `"${hours}"`,
         `"${log.dose}"`,
+        `"${twa}"`,
         `"${log.status}"`,
         `"${log.qrVerified || 'Yes'}"`,
         `"${log.scannedAt}"`

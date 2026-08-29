@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>H2S Dose Reader — Mandatory QR Verification & Dosimeter Engine</title>
+  <title>H2S Dose Reader — High-Res Calibration & Dynamic Shift TWA Engine</title>
 
   <!-- External Stylesheets -->
   <link rel="stylesheet" href="style.css">
@@ -21,7 +21,7 @@
           H2S Dose Reader
           <span class="badge-icon">SIH Demo</span>
         </h1>
-        <div class="subtitle">Mandatory QR Gatekeeper & Exposure Logging</div>
+        <div class="subtitle">High-Res Calibration & Dynamic Shift TWA</div>
       </div>
       <button id="headerQrRegisterBtn" class="btn-qr-icon" title="Register New Worker QR">
         <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
@@ -33,7 +33,7 @@
     <nav class="nav-tabs">
       <button class="tab-btn active" data-screen="scan-screen">
         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-        1. QR Verification
+        1. QR & Shift
       </button>
       <button class="tab-btn" data-screen="calibrate-screen">
         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
@@ -41,7 +41,7 @@
       </button>
       <button class="tab-btn" data-screen="result-screen">
         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-        3. Dose Result
+        3. Dose & TWA
       </button>
       <button class="tab-btn" data-screen="dashboard-screen">
         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
@@ -50,7 +50,7 @@
     </nav>
 
     <!-- ==========================================
-         SCREEN 1: MANDATORY QR VERIFICATION & STRIP SCAN
+         SCREEN 1: MANDATORY QR VERIFICATION, SHIFT HOURS & STRIP SCAN
          ========================================== -->
     <main id="scan-screen" class="screen-view active">
 
@@ -85,6 +85,32 @@
             <div>Shift Date: <span id="vShiftDate">--</span></div>
             <div>Status: <span class="badge-valid-tag valid-yes">DATABASE MATCH</span></div>
           </div>
+        </div>
+      </div>
+
+      <!-- DYNAMIC SHIFT DURATION SELECTOR -->
+      <div class="card">
+        <div class="card-title" style="justify-content: space-between;">
+          <span style="display: flex; align-items: center; gap: 8px;">
+            ⏱️ Shift Duration (Hours Worked)
+          </span>
+          <span class="badge-valid-tag valid-yes" style="font-size: 0.65rem;">DYNAMIC TWA ppm</span>
+        </div>
+
+        <p style="font-size: 0.8rem; color: #64748B;">
+          Adjust shift duration to accurately compute the worker's <strong>Time-Weighted Average (TWA ppm)</strong> concentration (<span style="font-family: monospace;">ppm = Dose ÷ Hours</span>).
+        </p>
+
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 4px;">
+          <button type="button" class="shift-preset-btn" data-hours="2">2 Hours</button>
+          <button type="button" class="shift-preset-btn" data-hours="4">4 Hours</button>
+          <button type="button" class="shift-preset-btn active" data-hours="8">8 Hours (Standard)</button>
+          <button type="button" class="shift-preset-btn" data-hours="12">12 Hours (Extended)</button>
+        </div>
+
+        <div class="form-group" style="margin-top: 4px;">
+          <label for="shiftHoursInput">Custom Shift Duration (Hours):</label>
+          <input type="number" id="shiftHoursInput" value="8.0" min="0.1" max="24.0" step="0.5" placeholder="8.0" style="font-weight: 800; font-size: 1.1rem; color: #0F172A;">
         </div>
       </div>
 
@@ -176,13 +202,13 @@
         </button>
         <button type="button" id="computeDoseBtn" class="btn btn-primary" disabled>
           <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
-          Compute Dose
+          Compute Dose & TWA
         </button>
       </div>
     </section>
 
     <!-- ==========================================
-         SCREEN 3: DOSE RESULT & AUTOMATIC DATABASE LOGGING
+         SCREEN 3: DOSE RESULT, TWA CONCENTRATION & LOGGING
          ========================================== -->
     <section id="result-screen" class="screen-view">
       <div class="auto-save-confirm-banner">
@@ -195,12 +221,25 @@
         BADGE EXPIRED — Reading Invalid, Replace Badge
       </div>
 
+      <!-- DUAL RESULT HERO CARD: CUMULATIVE DOSE & TWA CONCENTRATION -->
       <div id="resultDoseCard" class="result-header-card">
-        <div class="dose-display">
-          <span class="dose-label">Estimated Cumulative Exposure</span>
-          <span id="resultDoseVal" class="dose-value">--.-</span>
-          <span class="dose-unit">ppm·hr</span>
+        
+        <div class="dual-result-grid">
+          <!-- Left: Cumulative Dose -->
+          <div class="dose-display">
+            <span class="dose-label">Cumulative Shift Dose</span>
+            <span id="resultDoseVal" class="dose-value">--.-</span>
+            <span class="dose-unit">ppm·hr</span>
+          </div>
+
+          <!-- Right: TWA Concentration -->
+          <div class="dose-display" style="border-left: 1px solid rgba(255,255,255,0.2); padding-left: 14px;">
+            <span class="dose-label">Avg Concentration (TWA)</span>
+            <span id="resultTwaVal" class="dose-value" style="color: #FFC72C;">--.-</span>
+            <span class="dose-unit" style="color: #FFFFFF;">ppm (<span id="resultShiftHoursLabel">8.0</span>h shift)</span>
+          </div>
         </div>
+
         <div id="resultStatusBadge" class="status-badge status-normal">
           Calculating...
         </div>
@@ -227,10 +266,11 @@
         </label>
       </div>
 
+      <!-- High-Res Continuous Calibration Curve Chart -->
       <div class="card">
         <div class="card-title">
           <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
-          Lab Calibration Curve Trace
+          High-Resolution Calibration Curve Trace (500+ Continuous Points)
         </div>
         <div id="resultCurveChartContainer" class="curve-chart-wrapper"></div>
       </div>
@@ -241,7 +281,7 @@
       <div id="techDetailsBox" class="tech-details-box" style="display: none;"></div>
 
       <div class="disclaimer-text">
-        * Estimated value based on colorimetric approximation. Actual exposure may vary. Not for medical diagnosis.
+        * Estimated value based on colorimetric approximation & shift duration integration. Not for medical diagnosis.
       </div>
 
       <div class="form-row" style="margin-top: auto;">
@@ -281,7 +321,9 @@
             <tr>
               <th>Worker ID</th>
               <th>Shift Date</th>
+              <th>Shift (hrs)</th>
               <th>Dose (ppm·hr)</th>
+              <th>TWA Conc (ppm)</th>
               <th>Status</th>
               <th>QR Verified</th>
               <th>Scanned At</th>
@@ -369,12 +411,17 @@
           </div>
         </div>
 
+        <div class="form-group" style="width: 100%; text-align: left;">
+          <label for="modalShiftHoursInput" style="color: #94A3B8; font-size: 0.75rem;">Default Shift Duration (Hours):</label>
+          <input type="number" id="modalShiftHoursInput" value="8.0" min="0.1" max="24.0" step="0.5" style="font-weight: 800; color: #0F172A; text-align: center;">
+        </div>
+
         <!-- Only QR Code Image Box -->
         <div id="qrcodeDisplay" class="qr-code-box-large"></div>
 
         <div class="badge-details" style="text-align: center;">
           <div class="badge-worker-id" id="badgeWorkerIdText">EMP-101</div>
-          <div class="badge-field"><strong>Shift Date:</strong> <span id="badgeShiftDateText">2026-08-28</span></div>
+          <div class="badge-field"><strong>Shift Date:</strong> <span id="badgeShiftDateText">2026-08-28</span> (<span id="badgeShiftHoursText">8.0</span> hrs)</div>
         </div>
       </div>
 

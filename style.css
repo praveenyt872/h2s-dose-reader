@@ -308,6 +308,32 @@ body {
   text-align: center;
 }
 
+/* Shift Preset Buttons */
+.shift-preset-btn {
+  background: var(--color-slate-light);
+  border: 1.5px solid var(--color-border);
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--color-industrial-slate);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.shift-preset-btn:hover {
+  background: #E2E8F0;
+  border-color: var(--color-slate-muted);
+}
+
+.shift-preset-btn.active {
+  background: var(--color-hazard-yellow);
+  color: var(--color-industrial-dark);
+  border-color: var(--color-hazard-yellow-dark);
+  font-weight: 800;
+  box-shadow: 0 2px 4px rgba(217, 160, 6, 0.3);
+}
+
 /* Form Inputs */
 .form-group {
   display: flex;
@@ -330,6 +356,7 @@ label {
 }
 
 input[type="text"],
+input[type="number"],
 input[type="date"],
 select {
   padding: 12px;
@@ -344,6 +371,7 @@ select {
 }
 
 input[type="text"]:focus,
+input[type="number"]:focus,
 input[type="date"]:focus,
 select:focus {
   border-color: var(--color-border-focus);
@@ -549,18 +577,25 @@ select:focus {
   margin-top: 2px;
 }
 
-/* Result Screen Layout */
+/* Dual Result Hero Card */
 .result-header-card {
   background: linear-gradient(135deg, var(--color-industrial-dark), var(--color-industrial-slate));
   color: #FFFFFF;
   border-radius: var(--radius-md);
-  padding: 24px 20px;
+  padding: 22px 18px;
   text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   box-shadow: var(--shadow-md);
+}
+
+.dual-result-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  width: 100%;
+  gap: 12px;
 }
 
 .dose-display {
@@ -570,7 +605,7 @@ select:focus {
 }
 
 .dose-label {
-  font-size: 0.75rem;
+  font-size: 0.725rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: #94A3B8;
@@ -578,7 +613,7 @@ select:focus {
 }
 
 .dose-value {
-  font-size: 2.75rem;
+  font-size: 2.2rem;
   font-weight: 900;
   color: #FFFFFF;
   line-height: 1.1;
@@ -586,7 +621,7 @@ select:focus {
 }
 
 .dose-unit {
-  font-size: 1rem;
+  font-size: 0.85rem;
   font-weight: 600;
   color: var(--color-hazard-yellow);
 }
@@ -595,7 +630,7 @@ select:focus {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 16px;
+  padding: 6px 18px;
   border-radius: 20px;
   font-size: 0.85rem;
   font-weight: 800;
