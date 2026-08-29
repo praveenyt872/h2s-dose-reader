@@ -6,7 +6,7 @@
   <title>H2S Industrial Exposure Dosimeter & TWA Analytics</title>
 
   <!-- Clean White Light Theme Stylesheet with Cache-Buster -->
-  <link rel="stylesheet" href="style.css?v=5.0">
+  <link rel="stylesheet" href="style.css?v=6.0">
 </head>
 <body>
 
@@ -28,7 +28,7 @@
         <!-- Interactive Role Badge Pill -->
         <div id="headerRoleTag" class="role-indicator-pill role-pill-worker" onclick="openAdminLoginModal()" title="Click to Switch Role">
           <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-          <span id="headerRoleText">Worker: EMP-101</span>
+          <span id="headerRoleText">Awaiting QR Scan</span>
         </div>
 
         <!-- Admin Portal Switch Button -->
@@ -69,24 +69,24 @@
          ========================================== -->
     <main id="scan-screen" class="screen-view active">
 
-      <!-- Digital Worker Safety Pass Card -->
+      <!-- Digital Worker Safety Pass Card (Initially Unverified) -->
       <div class="digital-id-pass">
         <div class="id-pass-main">
           <div class="id-profile-chip">
             <div id="workerAvatarBox" class="id-avatar-box">🪪</div>
             <div class="id-profile-text">
-              <div class="id-worker-id" id="displayWorkerName">EMP-101 (Worker)</div>
-              <div class="id-meta-sub" id="displayWorkerSub">Shift Date: Today • Exposure Profile Active</div>
+              <div class="id-worker-id" id="displayWorkerName">Awaiting Worker QR</div>
+              <div class="id-meta-sub" id="displayWorkerSub">Scan Worker QR Badge to unlock reading</div>
             </div>
           </div>
-          <span id="stripLockStatusTag" class="tag-subtle" style="background: var(--color-blue-light); color: var(--color-blue); border-color: var(--color-blue-border);">
-            ✓ Profile Loaded
+          <span id="stripLockStatusTag" class="tag-subtle" style="background: var(--color-amber-light); color: var(--color-amber); border-color: var(--color-amber-border);">
+            ⚠️ Awaiting QR
           </span>
         </div>
 
         <button type="button" id="startLiveQrCameraBtn" class="btn-industrial btn-cyan-glow" style="width: 100%;">
           <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-          Scan Worker QR Badge (Live Camera)
+          📷 Scan Worker QR Badge (Open Camera)
         </button>
       </div>
 
@@ -122,7 +122,7 @@
         </div>
       </div>
 
-      <!-- Chemical Test Strip Ingestion Bay -->
+      <!-- Chemical Test Strip Ingestion Bay (Gated until QR is Scanned) -->
       <div class="industrial-card">
         <div class="card-header-flex">
           <span class="card-title-text">
@@ -131,14 +131,14 @@
           <span class="tag-subtle">Colorimetric Reaction</span>
         </div>
 
-        <div id="stripScanControls" class="strip-ingestion-bay">
-          <svg width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" style="color: var(--color-blue);"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+        <div id="stripScanControls" class="strip-ingestion-bay locked">
+          <svg width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" style="color: var(--text-muted);"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
           <div style="display: flex; flex-direction: column; gap: 2px;">
-            <span style="font-size: 0.95rem; font-weight: 800; color: var(--text-primary);" id="stripDropzoneText">
-              Capture or Upload Wristband Strip Photo
+            <span style="font-size: 0.95rem; font-weight: 800; color: var(--text-secondary);" id="stripDropzoneText">
+              🔒 Scan Worker QR Badge First to Unlock Strip Ingestion
             </span>
-            <span style="font-size: 0.75rem; color: var(--text-secondary);">
-              Supports direct camera capture or high-res gallery images
+            <span style="font-size: 0.75rem; color: var(--text-muted);">
+              Strip analysis is tied strictly to the verified worker identity
             </span>
           </div>
           <input type="file" id="fileInput" accept="image/*" capture="environment" style="display: none;">
@@ -294,7 +294,7 @@
       <!-- Worker Privacy Shield Banner (Default Worker Mode) -->
       <div id="workerPrivacyBanner" class="banner-role-privacy">
         <div>
-          <strong>🔒 Worker Privacy Shield:</strong> Showing private records for <strong id="privacyWorkerIdText" style="color: var(--color-blue);">EMP-101</strong>
+          <strong>🔒 Worker Privacy Shield:</strong> Showing private records for <strong id="privacyWorkerIdText" style="color: var(--color-blue);">Awaiting QR</strong>
         </div>
         <button type="button" id="dashboardAdminUnlockBtn" onclick="openAdminLoginModal()" class="btn-industrial btn-cyan-glow" style="padding: 6px 12px; font-size: 0.75rem;">
           🛡️ Admin Unlock
@@ -466,7 +466,7 @@
 
   <script src="qrcode.min.js"></script>
   <script src="jsqr.js"></script>
-  <script src="calibration.js?v=5.0"></script>
-  <script src="script.js?v=5.0"></script>
+  <script src="calibration.js?v=6.0"></script>
+  <script src="script.js?v=6.0"></script>
 </body>
 </html>

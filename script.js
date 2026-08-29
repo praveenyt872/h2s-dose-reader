@@ -1,6 +1,6 @@
 /**
  * H2S Dose Reader Pro — Industrial Safety & Telemetry Engine
- * Continuous Spline Calibration, Dynamic Shift TWA Integration & RBAC Privacy Shield
+ * Continuous Spline Calibration, Dynamic Shift TWA Integration & Mandatory QR Gatekeeper
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -10,12 +10,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const state = {
     currentScreen: 'scan-screen',
     userRole: 'worker', // 'worker' | 'admin'
-    activeWorkerId: 'EMP-101',
-    workerId: 'EMP-101',
+    activeWorkerId: null, // Initially null - requires QR Scan!
+    workerId: null,
     shiftDate: new Date().toISOString().split('T')[0],
     shiftHours: 8.0,
-    qrVerified: true,
-    verifiedWorker: { workerId: 'EMP-101', shiftDate: new Date().toISOString().split('T')[0], shiftHours: 8.0 },
+    qrVerified: false, // MANDATORY: Not verified on startup!
+    verifiedWorker: null,
     loadedImage: null,
     tapState: 0,
     tapPoints: [null, null, null],
@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
     logs: JSON.parse(localStorage.getItem('h2s_dosimeter_logs') || '[]')
   };
 
-  // Populate realistic starter compliance history if empty so judges see rich analytics immediately
+  // Populate realistic starter compliance history if empty
   if (state.logs.length === 0) {
     state.logs = [
       { id: Date.now() - 86400000 * 2, workerId: 'EMP-101', shiftDate: '2026-08-28', shiftHours: 8.0, dose: '22.4', doseNum: 22.4, twaPpm: '2.80', twaNum: 2.80, status: 'Normal Exposure', statusClass: 'status-safe', scannedAt: '2026-08-28 17:30' },
@@ -143,7 +143,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       if (adminPortalToggleBtn) {
         adminPortalToggleBtn.textContent = '🚪 Exit Admin';
-        adminPortalToggleBtn.style.color = '#F43F5E';
+        adminPortalToggleBtn.style.color = '#DC2626';
       }
       if (adminMasterBanner) adminMasterBanner.style.display = 'flex';
       if (workerPrivacyBanner) workerPrivacyBanner.style.display = 'none';
@@ -151,10 +151,13 @@ document.addEventListener('DOMContentLoaded', () => {
       if (exportCsvBtnText) exportCsvBtnText.textContent = 'Export Master Compliance CSV';
       if (statTotalLabel) statTotalLabel.textContent = 'Company Shifts';
     } else {
-      const activeId = state.activeWorkerId || state.workerId || 'EMP-101';
       if (headerRoleTag) {
         headerRoleTag.className = 'role-indicator-pill role-pill-worker';
-        if (headerRoleText) headerRoleText.textContent = `Worker: ${activeId}`;
+        if (headerRoleText) {
+          headerRoleText.textContent = state.qrVerified && state.activeWorkerId 
+            ? `Worker: ${state.activeWorkerId}` 
+            : 'Awaiting QR Scan';
+        }
       }
       if (adminPortalToggleBtn) {
         adminPortalToggleBtn.textContent = '🛡️ Admin';
@@ -163,10 +166,18 @@ document.addEventListener('DOMContentLoaded', () => {
       if (adminMasterBanner) adminMasterBanner.style.display = 'none';
       if (workerPrivacyBanner) {
         workerPrivacyBanner.style.display = 'flex';
-        if (privacyWorkerIdText) privacyWorkerIdText.textContent = activeId;
+        if (privacyWorkerIdText) {
+          privacyWorkerIdText.textContent = state.qrVerified && state.activeWorkerId 
+            ? state.activeWorkerId 
+            : 'Awaiting QR Scan';
+        }
       }
       if (clearLogBtn) clearLogBtn.style.display = 'none';
-      if (exportCsvBtnText) exportCsvBtnText.textContent = `Export (${activeId} CSV)`;
+      if (exportCsvBtnText) {
+        exportCsvBtnText.textContent = state.qrVerified && state.activeWorkerId 
+          ? `Export (${state.activeWorkerId} CSV)` 
+          : 'Export CSV';
+      }
       if (statTotalLabel) statTotalLabel.textContent = 'My Shift Logs';
     }
 
@@ -344,6 +355,11 @@ document.addEventListener('DOMContentLoaded', () => {
   navStepBtns.forEach(tab => {
     tab.addEventListener('click', () => {
       const targetScreen = tab.dataset.screen;
+      if ((targetScreen === 'calibrate-screen' || targetScreen === 'result-screen') && !state.qrVerified) {
+        alert('⚠️ Mandatory Step: Please scan your Worker QR Code first!');
+        startLiveCameraScan();
+        return;
+      }
       if ((targetScreen === 'calibrate-screen' || targetScreen === 'result-screen') && (!state.loadedImage)) {
         demoSampleBtn.click();
         return;
@@ -481,21 +497,24 @@ document.addEventListener('DOMContentLoaded', () => {
     updateRoleUI();
 
     if (displayWorkerName) displayWorkerName.textContent = `${scannedWorkerId} (Verified)`;
-    if (displayWorkerSub) displayWorkerSub.textContent = `Shift: ${scannedShiftDate} • ${scannedShiftHours}h Standard Profile`;
+    if (displayWorkerSub) displayWorkerSub.textContent = `Shift: ${scannedShiftDate} • ${scannedShiftHours}h Profile Active`;
     if (workerAvatarBox) {
       workerAvatarBox.textContent = '✓';
       workerAvatarBox.className = 'id-avatar-box verified';
     }
     if (stripLockStatusTag) {
-      stripLockStatusTag.textContent = '✓ Active & Verified';
-      stripLockStatusTag.style.background = 'rgba(16, 185, 129, 0.2)';
-      stripLockStatusTag.style.color = '#10B981';
+      stripLockStatusTag.textContent = '✓ Profile Loaded';
+      stripLockStatusTag.style.background = 'var(--color-emerald-light)';
+      stripLockStatusTag.style.color = 'var(--color-emerald)';
+      stripLockStatusTag.style.borderColor = 'var(--color-emerald-border)';
     }
 
     if (stripScanControls) {
       stripScanControls.classList.remove('locked');
       if (stripDropzoneText) stripDropzoneText.textContent = '📸 Tap to capture or upload wristband strip photo';
     }
+
+    alert(`✅ QR VERIFIED!\nLoaded profile for ${scannedWorkerId}.\nShift: ${scannedShiftHours} hrs.\n\nStep 2 (Chemical Strip Ingestion) is now UNLOCKED.`);
   }
 
   // ==========================================
@@ -604,12 +623,22 @@ document.addEventListener('DOMContentLoaded', () => {
   // ==========================================
   if (stripScanControls) {
     stripScanControls.addEventListener('click', () => {
+      if (!state.qrVerified) {
+        alert('⚠️ Mandatory Step: Please scan your Worker QR Code first to unlock strip ingestion!');
+        startLiveCameraScan();
+        return;
+      }
       if (fileInput) fileInput.click();
     });
   }
 
   if (fileInput) {
     fileInput.addEventListener('change', (e) => {
+      if (!state.qrVerified) {
+        alert('⚠️ Mandatory Step: Please scan your Worker QR Code first!');
+        return;
+      }
+
       const file = e.target.files[0];
       if (!file) return;
 
@@ -629,6 +658,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (demoSampleBtn) {
     demoSampleBtn.addEventListener('click', () => {
+      if (!state.qrVerified) {
+        handleSuccessfulQrScan(JSON.stringify({ workerId: 'EMP-101', shiftDate: state.shiftDate, shiftHours: state.shiftHours }));
+      }
       generateDemoSamplePhoto();
       switchScreen('calibrate-screen');
     });
@@ -850,7 +882,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (barEl) barEl.style.backgroundColor = `rgb(${cr}, ${cg}, ${cb})`;
       } else {
         if (textEl) textEl.textContent = '--';
-        if (barEl) barEl.style.backgroundColor = '#334155';
+        if (barEl) barEl.style.backgroundColor = '#E2E8F0';
       }
     });
   }
@@ -860,8 +892,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     ctx.drawImage(state.loadedImage, 0, 0, photoCanvas.width, photoCanvas.height);
 
-    const pinColors = ['#38BDF8', '#A855F7', '#F59E0B'];
-    const pinLabels = ['1: WHITE', '2: GREY', '3: STRIP'];
+    const pinColors = ['#2563EB', '#8B5CF6', '#D97706'];
 
     state.tapPoints.forEach((pt, idx) => {
       if (!pt) return;
@@ -1037,17 +1068,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const svgHtml = `
       <svg viewBox="0 0 ${svgWidth} ${svgHeight}">
-        <line x1="${pad}" y1="${svgHeight - pad}" x2="${svgWidth - 10}" y2="${svgHeight - pad}" stroke="rgba(255,255,255,0.15)" stroke-width="1.5"/>
-        <line x1="${pad}" y1="10" x2="${pad}" y2="${svgHeight - pad}" stroke="rgba(255,255,255,0.15)" stroke-width="1.5"/>
+        <line x1="${pad}" y1="${svgHeight - pad}" x2="${svgWidth - 10}" y2="${svgHeight - pad}" stroke="#E2E8F0" stroke-width="1.5"/>
+        <line x1="${pad}" y1="10" x2="${pad}" y2="${svgHeight - pad}" stroke="#E2E8F0" stroke-width="1.5"/>
         
-        <text x="${svgWidth / 2}" y="${svgHeight - 6}" font-size="10" fill="#94A3B8" font-weight="700" text-anchor="middle">Darkness Index ΔD (0 - 255)</text>
-        <text x="12" y="${svgHeight / 2}" font-size="10" fill="#94A3B8" font-weight="700" text-anchor="middle" transform="rotate(-90 12 ${svgHeight / 2})">Dose (ppm·hr)</text>
+        <text x="${svgWidth / 2}" y="${svgHeight - 6}" font-size="10" fill="#64748B" font-weight="700" text-anchor="middle">Darkness Index ΔD (0 - 255)</text>
+        <text x="12" y="${svgHeight / 2}" font-size="10" fill="#64748B" font-weight="700" text-anchor="middle" transform="rotate(-90 12 ${svgHeight / 2})">Dose (ppm·hr)</text>
 
-        <polyline points="${pointsSvg.join(' ')}" fill="none" stroke="#38BDF8" stroke-width="3" stroke-linecap="round"/>
+        <polyline points="${pointsSvg.join(' ')}" fill="none" stroke="#2563EB" stroke-width="3" stroke-linecap="round"/>
 
-        <circle cx="${activeX}" cy="${activeY}" r="8" fill="#F59E0B" stroke="#FFFFFF" stroke-width="2.5"/>
-        <circle cx="${activeX}" cy="${activeY}" r="16" fill="#F59E0B" opacity="0.3"/>
-        <text x="${activeX + 12}" y="${activeY - 6}" font-size="11" font-weight="900" fill="#F8FAFC">${activeDose.toFixed(1)} ppm·hr (${(activeDose / state.shiftHours).toFixed(2)} ppm TWA)</text>
+        <circle cx="${activeX}" cy="${activeY}" r="7" fill="#D97706" stroke="#FFFFFF" stroke-width="2"/>
+        <text x="${activeX + 10}" y="${activeY - 6}" font-size="11" font-weight="900" fill="#0F172A">${activeDose.toFixed(1)} ppm·hr (${(activeDose / state.shiftHours).toFixed(2)} ppm TWA)</text>
       </svg>
     `;
 
@@ -1060,7 +1090,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderDashboard() {
     if (!logTableBody) return;
     const query = (logSearchInput ? logSearchInput.value : '').toLowerCase().trim();
-    const activeId = state.activeWorkerId || state.workerId || 'EMP-101';
+    const activeId = state.activeWorkerId || state.workerId;
 
     let roleFilteredLogs = [];
     if (state.userRole === 'admin') {
@@ -1071,6 +1101,21 @@ document.addEventListener('DOMContentLoaded', () => {
       if (statNormal) statNormal.textContent = state.logs.filter(l => l.status.includes('Normal') || l.status.includes('Safe')).length;
       if (statElevatedHigh) statElevatedHigh.textContent = state.logs.filter(l => !l.status.includes('Normal') && !l.status.includes('Safe')).length;
     } else {
+      if (!state.qrVerified || !activeId) {
+        logTableBody.innerHTML = `
+          <tr>
+            <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 32px;">
+              🔒 <strong>Worker Privacy Shield</strong><br>
+              <span style="font-size:0.78rem;">Please scan your Worker QR Code on Step 1 to unlock your personal exposure history.</span>
+            </td>
+          </tr>
+        `;
+        if (statTotal) statTotal.textContent = '0';
+        if (statNormal) statNormal.textContent = '0';
+        if (statElevatedHigh) statElevatedHigh.textContent = '0';
+        return;
+      }
+
       const myLogs = state.logs.filter(log => log.workerId.toUpperCase() === activeId.toUpperCase());
       roleFilteredLogs = myLogs.filter(log => {
         return (log.shiftDate && log.shiftDate.includes(query)) || (log.scannedAt && log.scannedAt.toLowerCase().includes(query)) || (log.status && log.status.toLowerCase().includes(query));
@@ -1086,7 +1131,7 @@ document.addEventListener('DOMContentLoaded', () => {
       logTableBody.innerHTML = `
         <tr>
           <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 28px;">
-            ${state.userRole === 'admin' ? 'No matching company records in master database.' : `🔒 No private exposure logs found for Worker ID: <strong>${activeId}</strong>.`}
+            ${state.userRole === 'admin' ? 'No matching company records in master database.' : `No private exposure logs found for Worker ID: <strong>${activeId}</strong>.`}
           </td>
         </tr>
       `;
@@ -1099,7 +1144,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const twaDisplay = log.twaPpm ? `${log.twaPpm} ppm` : `${(parseFloat(log.dose) / (log.shiftHours || 8)).toFixed(2)} ppm`;
 
       tr.innerHTML = `
-        <td><strong style="font-family: var(--font-mono); color: #38BDF8;">${escapeHtml(log.workerId)}</strong></td>
+        <td><strong style="font-family: var(--font-mono); color: #2563EB;">${escapeHtml(log.workerId)}</strong></td>
         <td>${escapeHtml(log.shiftDate)}</td>
         <td><span class="tag-subtle">${escapeHtml(hoursDisplay)}</span></td>
         <td><strong>${escapeHtml(log.dose)} ppm·hr</strong></td>
@@ -1114,7 +1159,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (exportCsvBtn) {
     exportCsvBtn.addEventListener('click', () => {
-      const activeId = state.activeWorkerId || state.workerId || 'EMP-101';
+      const activeId = state.activeWorkerId || state.workerId;
+      if (state.userRole === 'worker' && (!state.qrVerified || !activeId)) {
+        alert('Please scan your Worker QR Badge first to export your personal records.');
+        return;
+      }
+
       let logsToExport = state.userRole === 'admin' ? state.logs : state.logs.filter(l => l.workerId.toUpperCase() === activeId.toUpperCase());
 
       if (logsToExport.length === 0) {
