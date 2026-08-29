@@ -6,7 +6,7 @@
   <title>H2S Industrial Exposure Dosimeter & TWA Analytics</title>
 
   <!-- Clean White Light Theme Stylesheet with Cache-Buster -->
-  <link rel="stylesheet" href="style.css?v=6.0">
+  <link rel="stylesheet" href="style.css?v=7.0">
 </head>
 <body>
 
@@ -365,7 +365,7 @@
     </footer>
   </div>
 
-  <!-- ADMIN AUTHENTICATION SECURITY MODAL -->
+  <!-- ADMIN AUTHENTICATION SECURITY MODAL (No Password Revealed) -->
   <div id="adminLoginModal" class="modal-glass-backdrop" style="display: none;">
     <div class="modal-industrial-box">
       <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -376,21 +376,21 @@
       </div>
 
       <p style="font-size: 0.82rem; color: var(--text-secondary);">
-        Enter the Safety Officer PIN to unlock the master database containing all company workers' logs.
+        Enter the Safety Officer PIN to unlock the master compliance database and company-wide worker records.
       </p>
 
       <div class="form-field">
         <label for="adminPinInput">Admin Security PIN:</label>
-        <input type="password" id="adminPinInput" placeholder="Enter PIN (Default: admin123)" style="text-align: center; font-size: 1.1rem; font-weight: 800; font-family: var(--font-mono); letter-spacing: 0.1em;">
+        <input type="password" id="adminPinInput" placeholder="••••••••" style="text-align: center; font-size: 1.1rem; font-weight: 800; font-family: var(--font-mono); letter-spacing: 0.1em;">
       </div>
 
       <div id="adminPinErrorMsg" style="display: none; color: var(--color-ruby); font-size: 0.8rem; font-weight: 700; text-align: center;">
-        ❌ Invalid PIN. Please use <code>admin123</code>.
+        ❌ Access Denied: Invalid Security PIN.
       </div>
 
       <div class="form-grid">
-        <button type="button" id="autoFillPinBtn" onclick="autoFillDemoPin()" class="btn-industrial btn-glass" style="font-size: 0.8rem;">
-          ⚡ 1-Click Demo PIN
+        <button type="button" onclick="closeAdminModal()" class="btn-industrial btn-glass" style="font-size: 0.85rem;">
+          Cancel
         </button>
         <button type="button" id="submitAdminPinBtn" onclick="handleAdminPinSubmit()" class="btn-industrial btn-cyan-glow" style="font-size: 0.85rem;">
           🔓 Unlock Master View
@@ -466,7 +466,7 @@
 
   <script src="qrcode.min.js"></script>
   <script src="jsqr.js"></script>
-  <script src="calibration.js?v=6.0"></script>
-  <script src="script.js?v=6.0"></script>
+  <script src="calibration.js?v=7.0"></script>
+  <script src="script.js?v=7.0"></script>
 </body>
 </html>
