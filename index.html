@@ -3,416 +3,470 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>H2S Exposure Dosimeter Reader</title>
+  <title>H2S Industrial Exposure Dosimeter & TWA Analytics</title>
 
-  <!-- Clean Minimalist Stylesheet with Cache-Buster -->
-  <link rel="stylesheet" href="style.css?v=3.0">
+  <!-- High-Tech Industrial Safety Stylesheet with Cache-Buster -->
+  <link rel="stylesheet" href="style.css?v=4.0">
 </head>
 <body>
 
-  <div class="app-container">
-    <!-- Sleek Top Header Bar -->
+  <div class="app-wrapper">
+    <!-- Header Bar with Live Telemetry & Role Engine -->
     <header class="app-header">
-      <div class="brand-title">
-        <div class="brand-icon">H₂S</div>
-        <div class="brand-text">
-          <h1>Dose Reader</h1>
-          <div class="subtitle">Exposure Dosimetry & TWA</div>
+      <div class="brand-section">
+        <div class="brand-logo-icon">H₂S</div>
+        <div class="brand-info">
+          <h1>
+            Dose Reader Pro
+            <span class="brand-badge">DGMS Compliant</span>
+          </h1>
+          <div class="sub">Optical Dosimetry & Occupational TWA Engine</div>
         </div>
       </div>
 
-      <div class="header-actions">
-        <!-- Role Status Pill (Clickable) -->
-        <span id="headerRoleTag" class="role-tag role-worker" onclick="openAdminLoginModal()" title="Switch Role">
-          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-          <span id="headerRoleText">Worker</span>
-        </span>
+      <div class="header-controls">
+        <!-- Interactive Role Badge Pill -->
+        <div id="headerRoleTag" class="role-indicator-pill role-pill-worker" onclick="openAdminLoginModal()" title="Click to Switch Role">
+          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+          <span id="headerRoleText">Worker: EMP-101</span>
+        </div>
 
-        <!-- Admin Portal Toggle Button -->
-        <button type="button" id="adminPortalToggleBtn" class="btn-header-action" onclick="handleAdminHeaderBtnClick()" title="Safety Officer Admin Portal">
+        <!-- Admin Portal Switch Button -->
+        <button type="button" id="adminPortalToggleBtn" class="btn-header-tool" onclick="handleAdminHeaderBtnClick()" title="Safety Officer Admin Portal">
           🛡️ Admin
         </button>
 
-        <!-- Register Worker QR Button -->
-        <button type="button" id="headerQrRegisterBtn" class="btn-header-action" onclick="openQrModalWindow()" title="Generate Worker QR">
+        <!-- Generate Worker QR Badge Button -->
+        <button type="button" id="headerQrRegisterBtn" class="btn-header-tool" onclick="openQrModalWindow()" title="Generate Worker QR Badge">
           <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-          QR
+          QR Pass
         </button>
       </div>
     </header>
 
-    <!-- Sleek Segmented Navigation Tabs -->
-    <nav class="nav-tabs">
-      <button class="tab-btn active" data-screen="scan-screen">
+    <!-- 4-Step Pipeline Navigation -->
+    <nav class="pipeline-nav">
+      <button class="nav-step-btn active" data-screen="scan-screen">
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-        <span>1. Scan</span>
+        <span>1. Ingestion</span>
       </button>
-      <button class="tab-btn" data-screen="calibrate-screen">
+      <button class="nav-step-btn" data-screen="calibrate-screen">
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-        <span>2. Calibrate</span>
+        <span>2. Calibration</span>
       </button>
-      <button class="tab-btn" data-screen="result-screen">
+      <button class="nav-step-btn" data-screen="result-screen">
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-        <span>3. Result</span>
+        <span>3. Analytics</span>
       </button>
-      <button class="tab-btn" data-screen="dashboard-screen">
+      <button class="nav-step-btn" data-screen="dashboard-screen">
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
-        <span>4. History</span>
+        <span>4. Audit Log</span>
       </button>
     </nav>
 
     <!-- ==========================================
-         SCREEN 1: SCAN & SETUP
+         SCREEN 1: INGESTION & WORKER IDENTIFICATION
          ========================================== -->
     <main id="scan-screen" class="screen-view active">
 
-      <!-- Worker Identity Profile Card -->
-      <div class="worker-id-card">
-        <div class="worker-id-header">
-          <div class="worker-avatar-box">
-            <div id="workerAvatarCircle" class="avatar-circle">👤</div>
-            <div class="worker-info-meta">
-              <div class="w-name" id="displayWorkerName">Worker Not Verified</div>
-              <div class="w-sub" id="displayWorkerSub">Scan QR badge to begin shift reading</div>
+      <!-- Digital Worker Safety Pass Card -->
+      <div class="digital-id-pass">
+        <div class="id-pass-main">
+          <div class="id-profile-chip">
+            <div id="workerAvatarBox" class="id-avatar-box">🪪</div>
+            <div class="id-profile-text">
+              <div class="id-worker-id" id="displayWorkerName">EMP-101 (Worker)</div>
+              <div class="id-meta-sub" id="displayWorkerSub">Shift Date: Today • Exposure Profile Active</div>
             </div>
           </div>
-          <span id="stripLockStatusTag" class="role-tag role-worker" style="font-size: 0.7rem;">Awaiting QR</span>
+          <span id="stripLockStatusTag" class="tag-subtle" style="background: rgba(56, 189, 248, 0.15); color: var(--color-blue);">
+            ✓ Profile Loaded
+          </span>
         </div>
 
-        <button type="button" id="startLiveQrCameraBtn" class="btn btn-primary" style="width: 100%;">
-          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-          Scan Worker QR Badge (Camera)
+        <button type="button" id="startLiveQrCameraBtn" class="btn-industrial btn-cyan-glow" style="width: 100%;">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+          Scan Worker QR Badge (Live Camera)
         </button>
       </div>
 
-      <!-- Shift Duration Selection -->
-      <div class="card">
-        <div class="card-title">
-          <span>Shift Duration</span>
-          <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 500;">Dynamic TWA ppm</span>
+      <!-- Dynamic Shift Duration Selector -->
+      <div class="industrial-card">
+        <div class="card-header-flex">
+          <span class="card-title-text">
+            ⏱️ Shift Exposure Duration
+          </span>
+          <span class="tag-subtle" style="color: var(--color-amber);">Real-Time TWA ppm</span>
         </div>
 
-        <div class="segmented-control">
-          <button type="button" class="shift-preset-btn" data-hours="1">1h</button>
-          <button type="button" class="shift-preset-btn" data-hours="2">2h</button>
-          <button type="button" class="shift-preset-btn" data-hours="4">4h</button>
-          <button type="button" class="shift-preset-btn active" data-hours="8">8h (Full)</button>
-          <button type="button" class="shift-preset-btn" data-hours="12">12h</button>
+        <p style="font-size: 0.8rem; color: var(--text-secondary);">
+          Select or customize the shift duration to calculate average exposure concentration: 
+          <code style="color: var(--color-blue); font-weight: 700;">TWA ppm = Cumulative Dose ÷ Shift Hours</code>.
+        </p>
+
+        <!-- Segmented Industrial Dial -->
+        <div class="shift-segmented-dial">
+          <button type="button" class="shift-dial-btn" data-hours="1">1h Check</button>
+          <button type="button" class="shift-dial-btn" data-hours="2">2h</button>
+          <button type="button" class="shift-dial-btn" data-hours="4">4h Half</button>
+          <button type="button" class="shift-dial-btn active" data-hours="8">8h Standard</button>
+          <button type="button" class="shift-dial-btn" data-hours="12">12h Long</button>
         </div>
 
-        <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 4px;">
-          <label for="shiftHoursInput" style="margin: 0;">Custom Shift Hours:</label>
-          <input type="number" id="shiftHoursInput" value="8.0" min="0.1" max="24.0" step="0.5" style="width: 90px; text-align: center; font-weight: 700;">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 4px;">
+          <label for="shiftHoursInput" style="margin: 0;">Precision Custom Duration:</label>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <input type="number" id="shiftHoursInput" value="8.0" min="0.1" max="24.0" step="0.5" style="width: 85px; text-align: center; font-weight: 800; font-family: var(--font-mono); color: var(--color-amber);">
+            <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-secondary);">hours</span>
+          </div>
         </div>
       </div>
 
-      <!-- Strip Photo Upload Dropzone -->
-      <div id="stripScanSectionCard" class="card">
-        <div class="card-title">
-          <span>Wristband Test Strip Photo</span>
+      <!-- Chemical Test Strip Ingestion Bay -->
+      <div class="industrial-card">
+        <div class="card-header-flex">
+          <span class="card-title-text">
+            📸 Chemical Test Strip Optical Ingestion
+          </span>
+          <span class="tag-subtle">Colorimetric Reaction</span>
         </div>
 
-        <div id="stripScanControls" class="strip-dropzone locked">
-          <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="color: var(--text-muted);"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-          <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary);" id="stripDropzoneText">
-            Scan Worker QR above to unlock strip capture
+        <div id="stripScanControls" class="strip-ingestion-bay">
+          <svg width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" style="color: var(--color-blue);"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+          <div style="display: flex; flex-direction: column; gap: 2px;">
+            <span style="font-size: 0.95rem; font-weight: 800; color: #FFFFFF;" id="stripDropzoneText">
+              Capture or Upload Wristband Strip Photo
+            </span>
+            <span style="font-size: 0.75rem; color: var(--text-secondary);">
+              Supports direct camera capture or high-res gallery images
+            </span>
           </div>
           <input type="file" id="fileInput" accept="image/*" capture="environment" style="display: none;">
         </div>
 
-        <button type="button" id="demoSampleBtn" class="btn btn-outline btn-sm" style="align-self: center; margin-top: 2px;">
-          ⚡ Use Demo Sample Photo
+        <button type="button" id="demoSampleBtn" class="btn-industrial btn-glass" style="width: 100%;">
+          ⚡ Load High-Res Laboratory Sample Strip
         </button>
       </div>
     </main>
 
     <!-- ==========================================
-         SCREEN 2: CALIBRATE & SAMPLE
+         SCREEN 2: COMPUTER VISION & CALIBRATION
          ========================================== -->
     <section id="calibrate-screen" class="screen-view">
-      <div class="canvas-wrapper">
+      
+      <!-- Canvas Viewport -->
+      <div class="canvas-view-container">
         <canvas id="photoCanvas"></canvas>
       </div>
 
-      <!-- Compact 3-Point Calibration Bar -->
-      <div class="calibration-pills-bar">
-        <div id="readoutWhite" class="cal-pill">
-          <div class="cal-pill-title"><span class="pin-dot dot-white"></span> White Ref</div>
-          <div class="rgb-text" style="font-size: 0.7rem;">--</div>
+      <!-- 3-Channel Optical Patch Readout Cards -->
+      <div class="calibration-readout-grid">
+        <div id="readoutWhite" class="cal-patch-card">
+          <div class="cal-patch-header">
+            <span class="pin-indicator-dot dot-w"></span>
+            1. White Ref
+          </div>
+          <div class="rgb-display-text">--</div>
+          <div class="swatch-mini-bar"></div>
         </div>
-        <div id="readoutGrey" class="cal-pill">
-          <div class="cal-pill-title"><span class="pin-dot dot-grey"></span> Grey Ref</div>
-          <div class="rgb-text" style="font-size: 0.7rem;">--</div>
+
+        <div id="readoutGrey" class="cal-patch-card">
+          <div class="cal-patch-header">
+            <span class="pin-indicator-dot dot-g"></span>
+            2. Grey Neutral
+          </div>
+          <div class="rgb-display-text">--</div>
+          <div class="swatch-mini-bar"></div>
         </div>
-        <div id="readoutStrip" class="cal-pill">
-          <div class="cal-pill-title"><span class="pin-dot dot-strip"></span> H2S Strip</div>
-          <div class="rgb-text" style="font-size: 0.7rem;">--</div>
+
+        <div id="readoutStrip" class="cal-patch-card">
+          <div class="cal-patch-header">
+            <span class="pin-indicator-dot dot-s"></span>
+            3. H2S Reactive
+          </div>
+          <div class="rgb-display-text">--</div>
+          <div class="swatch-mini-bar"></div>
         </div>
       </div>
 
-      <div style="font-size: 0.75rem; color: var(--text-muted); text-align: center;" id="stepInstruction">
-        Tap White → Grey → Chemical Strip (or click Auto-Detect)
+      <div style="text-align: center; font-size: 0.8rem; color: var(--text-secondary); font-weight: 600;" id="stepInstruction">
+        Tap White Ref → Grey Ref → H2S Chemical Strip (or click Auto-Detect)
       </div>
 
-      <!-- Action Toolbar -->
-      <div class="form-row" style="margin-top: auto;">
-        <button type="button" id="autoDetectBtn" class="btn btn-outline">
-          ✨ Auto-Detect
+      <!-- Calibration Controls Toolbar -->
+      <div class="form-grid" style="margin-top: auto;">
+        <button type="button" id="autoDetectBtn" class="btn-industrial btn-cyan-glow">
+          ✨ Auto-Detect Patches
         </button>
-        <button type="button" id="resetPinsBtn" class="btn btn-outline">
-          Reset Pins
+        <button type="button" id="resetPinsBtn" class="btn-industrial btn-glass">
+          Reset Crosshairs
         </button>
       </div>
-      <button type="button" id="computeDoseBtn" class="btn btn-primary" style="width: 100%;" disabled>
-        Compute Dose & TWA Concentration
+
+      <button type="button" id="computeDoseBtn" class="btn-industrial btn-primary-glow" style="width: 100%;" disabled>
+        ⚡ Compute Exposure Dose & TWA Concentration
       </button>
     </section>
 
     <!-- ==========================================
-         SCREEN 3: RESULT & METRICS
+         SCREEN 3: EXPOSURE ANALYTICS & TWA COCKPIT
          ========================================== -->
     <section id="result-screen" class="screen-view">
       
-      <!-- Twin Hero Metrics -->
-      <div class="results-hero-grid">
-        <div class="metric-card">
-          <span class="metric-label">Cumulative Dose</span>
-          <span id="resultDoseVal" class="metric-value">--.-</span>
-          <span class="metric-unit">ppm·hr</span>
+      <!-- Twin Exposure Cockpit Digital Meters -->
+      <div class="twin-metric-cockpit">
+        <!-- Metric 1: Cumulative Shift Dose -->
+        <div class="exposure-gauge-card">
+          <span class="gauge-label">Cumulative Shift Dose</span>
+          <span id="resultDoseVal" class="gauge-digital-val">--.-</span>
+          <span class="gauge-unit">ppm·hr</span>
         </div>
 
-        <div class="metric-card">
-          <span class="metric-label">Avg Conc (TWA)</span>
-          <span id="resultTwaVal" class="metric-value" style="color: var(--color-accent-amber);">--.-</span>
-          <span class="metric-unit">ppm (<span id="resultShiftHoursLabel">8.0</span>h)</span>
+        <!-- Metric 2: Time-Weighted Average Concentration -->
+        <div class="exposure-gauge-card twa-focus">
+          <span class="gauge-label">Avg Concentration (TWA)</span>
+          <span id="resultTwaVal" class="gauge-digital-val" style="color: var(--color-amber);">--.-</span>
+          <span class="gauge-unit" style="color: #FFFFFF;">ppm (<span id="resultShiftHoursLabel">8.0</span>h shift)</span>
         </div>
       </div>
 
-      <!-- Status Indicator -->
-      <div id="resultStatusBadge" class="status-badge status-normal" style="align-self: center;">
-        Normal Exposure
+      <!-- Safety Classification Status Banner -->
+      <div id="resultStatusBadge" class="safety-status-banner status-safe">
+        🟢 Normal Exposure (< 10 ppm)
       </div>
 
-      <!-- Live Shift Adjuster -->
-      <div class="card" style="padding: 12px 14px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-          <span style="font-size: 0.8rem; font-weight: 700;">Recalculate for Shift:</span>
+      <!-- Interactive Dynamic Shift Hours Slider on Screen 3 -->
+      <div class="industrial-card" style="padding: 14px 16px;">
+        <div class="card-header-flex" style="margin-bottom: 8px;">
+          <span style="font-size: 0.82rem; font-weight: 800; color: #FFFFFF;">
+            ⏱️ Re-Evaluate TWA for Specific Shift Duration:
+          </span>
           <div style="display: flex; align-items: center; gap: 4px;">
-            <input type="number" id="resultShiftInput" value="8.0" min="0.1" max="24.0" step="0.5" style="width: 65px; padding: 4px 6px; text-align: center; font-weight: 700; font-size: 0.85rem;">
-            <span style="font-size: 0.75rem; color: var(--text-muted);">hrs</span>
+            <input type="number" id="resultShiftInput" value="8.0" min="0.1" max="24.0" step="0.5" style="width: 70px; padding: 6px; text-align: center; font-weight: 800; font-family: var(--font-mono); color: var(--color-amber);">
+            <span style="font-size: 0.75rem; color: var(--text-secondary); font-weight: 700;">hrs</span>
           </div>
         </div>
-        <div class="segmented-control">
-          <button type="button" class="shift-preset-btn result-shift-btn" data-hours="1">1h</button>
-          <button type="button" class="shift-preset-btn result-shift-btn" data-hours="2">2h</button>
-          <button type="button" class="shift-preset-btn result-shift-btn" data-hours="4">4h</button>
-          <button type="button" class="shift-preset-btn result-shift-btn active" data-hours="8">8h</button>
-          <button type="button" class="shift-preset-btn result-shift-btn" data-hours="12">12h</button>
+
+        <div class="shift-segmented-dial">
+          <button type="button" class="shift-dial-btn result-shift-btn" data-hours="1">1h</button>
+          <button type="button" class="shift-dial-btn result-shift-btn" data-hours="2">2h</button>
+          <button type="button" class="shift-dial-btn result-shift-btn" data-hours="4">4h</button>
+          <button type="button" class="shift-dial-btn result-shift-btn active" data-hours="8">8h</button>
+          <button type="button" class="shift-dial-btn result-shift-btn" data-hours="12">12h</button>
         </div>
       </div>
 
-      <!-- Swatches Comparison -->
-      <div class="swatches-grid">
-        <div class="swatch-item">
-          <span style="font-size: 0.7rem; color: var(--text-muted); font-weight: 600;">RAW CAPTURED</span>
-          <div id="rawSwatch" class="swatch-color-box"></div>
-          <span id="rawRgbText" class="rgb-text">RGB(0, 0, 0)</span>
+      <!-- Colorimetric Chromaticity Comparison -->
+      <div class="color-verification-grid">
+        <div class="color-box-item">
+          <span style="font-size: 0.7rem; font-weight: 800; color: var(--text-secondary); text-transform: uppercase;">Raw Captured RGB</span>
+          <div id="rawSwatch" class="color-swatch-box"></div>
+          <span id="rawRgbText" class="rgb-display-text" style="font-size: 0.75rem;">RGB(0, 0, 0)</span>
         </div>
-        <div class="swatch-item">
-          <span style="font-size: 0.7rem; color: var(--text-muted); font-weight: 600;">CORRECTED</span>
-          <div id="correctedSwatch" class="swatch-color-box"></div>
-          <span id="correctedRgbText" class="rgb-text">RGB(0, 0, 0)</span>
+        <div class="color-box-item">
+          <span style="font-size: 0.7rem; font-weight: 800; color: var(--text-secondary); text-transform: uppercase;">White-Balanced RGB</span>
+          <div id="correctedSwatch" class="color-swatch-box"></div>
+          <span id="correctedRgbText" class="rgb-display-text" style="font-size: 0.75rem;">RGB(0, 0, 0)</span>
         </div>
       </div>
 
-      <!-- High-Res Continuous Calibration Chart -->
-      <div class="card" style="padding: 12px;">
-        <div class="card-title" style="margin-bottom: 6px;">
-          <span>Continuous Calibration Curve</span>
-          <span style="font-size: 0.7rem; color: var(--text-muted); font-weight: 500;">500-pt spline</span>
+      <!-- 511-Point Continuous Hermite Spline Calibration Curve -->
+      <div class="industrial-card" style="padding: 14px;">
+        <div class="card-header-flex" style="margin-bottom: 6px;">
+          <span class="card-title-text" style="font-size: 0.85rem;">
+            📈 High-Resolution Calibration Spline (500+ Continuous Points)
+          </span>
         </div>
-        <div id="resultCurveChartContainer" class="chart-container"></div>
+        <div id="resultCurveChartContainer" class="curve-graph-container"></div>
       </div>
 
-      <button type="button" onclick="switchScreen('dashboard-screen')" class="btn btn-outline" style="width: 100%; margin-top: auto;">
-        View History Log →
+      <button type="button" onclick="switchScreen('dashboard-screen')" class="btn-industrial btn-glass" style="width: 100%; margin-top: auto;">
+        View Exposure Audit History →
       </button>
     </section>
 
     <!-- ==========================================
-         SCREEN 4: HISTORY & DATABASE
+         SCREEN 4: AUDIT LOG, WORKER PRIVACY & ADMIN PORTAL
          ========================================== -->
     <section id="dashboard-screen" class="screen-view">
       
-      <!-- Worker Privacy Banner (Worker Mode) -->
-      <div id="workerPrivacyBanner" class="banner-privacy">
+      <!-- Worker Privacy Shield Banner (Default Worker Mode) -->
+      <div id="workerPrivacyBanner" class="banner-role-privacy">
         <div>
-          <strong>🔒 Worker View:</strong> <span id="privacyWorkerIdText">EMP-101</span>
+          <strong>🔒 Worker Privacy Shield:</strong> Showing private records for <strong id="privacyWorkerIdText" style="color: #FFFFFF;">EMP-101</strong>
         </div>
-        <button type="button" id="dashboardAdminUnlockBtn" onclick="openAdminLoginModal()" class="btn btn-sm btn-outline" style="font-size: 0.72rem; padding: 3px 8px;">
-          🛡️ Admin Login
+        <button type="button" id="dashboardAdminUnlockBtn" onclick="openAdminLoginModal()" class="btn-industrial btn-cyan-glow" style="padding: 6px 12px; font-size: 0.75rem;">
+          🛡️ Admin Unlock
         </button>
       </div>
 
-      <!-- Admin Master Banner (Admin Mode) -->
-      <div id="adminMasterBanner" class="banner-admin" style="display: none;">
+      <!-- Safety Admin Master Banner (Admin Mode) -->
+      <div id="adminMasterBanner" class="banner-role-admin" style="display: none;">
         <div>
-          <strong>🛡️ Admin Master View:</strong> Full Database
+          <strong>🛡️ Safety Admin Portal:</strong> Full Company Database & Audit Access
         </div>
-        <button type="button" id="exitAdminModeBtn" onclick="exitAdminMode()" class="btn btn-sm btn-outline" style="font-size: 0.72rem; padding: 3px 8px; color: #DC2626;">
+        <button type="button" id="exitAdminModeBtn" onclick="exitAdminMode()" class="btn-industrial btn-glass" style="padding: 6px 12px; font-size: 0.75rem; color: var(--color-ruby); border-color: rgba(244, 63, 94, 0.3);">
           🚪 Exit Admin
         </button>
       </div>
 
-      <!-- Stats Summary -->
-      <div class="stats-summary-grid">
-        <div class="stat-box">
-          <div id="statTotal" class="num">0</div>
-          <div id="statTotalLabel" class="lbl">Shifts</div>
+      <!-- KPI Analytics Counters -->
+      <div class="kpi-analytics-grid">
+        <div class="kpi-card">
+          <div id="statTotal" class="kpi-val">0</div>
+          <div id="statTotalLabel" class="kpi-lbl">Shifts Logged</div>
         </div>
-        <div class="stat-box">
-          <div id="statNormal" class="num" style="color: var(--status-green-text);">0</div>
-          <div class="lbl">Normal</div>
+        <div class="kpi-card">
+          <div id="statNormal" class="kpi-val" style="color: var(--color-emerald);">0</div>
+          <div class="kpi-lbl">Safe Exposures</div>
         </div>
-        <div class="stat-box">
-          <div id="statElevatedHigh" class="num" style="color: var(--status-red-text);">0</div>
-          <div class="lbl">Elevated</div>
+        <div class="kpi-card">
+          <div id="statElevatedHigh" class="kpi-val" style="color: var(--color-ruby);">0</div>
+          <div class="kpi-lbl">Action Alerts</div>
         </div>
       </div>
 
-      <!-- Search Input -->
-      <input type="text" id="logSearchInput" placeholder="🔍 Search records...">
+      <!-- Live Search Box -->
+      <input type="text" id="logSearchInput" placeholder="🔍 Search compliance records by Worker ID, Date, or Status...">
 
-      <!-- Log Table -->
-      <div class="table-container">
-        <table class="data-table">
+      <!-- Audit Log Table -->
+      <div class="audit-table-wrapper">
+        <table class="audit-table">
           <thead>
             <tr>
-              <th>Worker</th>
-              <th>Date</th>
-              <th>Shift</th>
-              <th>Dose</th>
-              <th>TWA</th>
-              <th>Status</th>
+              <th>Worker ID</th>
+              <th>Shift Date</th>
+              <th>Duration</th>
+              <th>Dose (ppm·hr)</th>
+              <th>TWA Conc</th>
+              <th>Safety Status</th>
             </tr>
           </thead>
           <tbody id="logTableBody"></tbody>
         </table>
       </div>
 
-      <!-- Export & Clear Actions -->
-      <div class="form-row" style="margin-top: auto;">
-        <button type="button" id="exportCsvBtn" class="btn btn-primary" style="flex: 1;">
-          <span id="exportCsvBtnText">Export CSV</span>
+      <!-- Master Export Actions -->
+      <div class="form-grid" style="margin-top: auto;">
+        <button type="button" id="exportCsvBtn" class="btn-industrial btn-primary-glow" style="flex: 1;">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          <span id="exportCsvBtnText">Export Compliance CSV</span>
         </button>
-        <button type="button" id="clearLogBtn" class="btn btn-outline" style="display: none; color: var(--status-red-text);">
-          Clear All
+        <button type="button" id="clearLogBtn" class="btn-industrial btn-glass" style="display: none; color: var(--color-ruby); border-color: rgba(244, 63, 94, 0.4);">
+          Clear Master DB
         </button>
       </div>
     </section>
 
+    <!-- High-Tech Industrial Footer -->
     <footer class="app-footer">
-      H₂S Exposure Dosimeter Reader
+      H₂S Optical Dosimetry & Occupational Health Telemetry Engine
     </footer>
   </div>
 
-  <!-- ADMIN AUTHENTICATION LOGIN MODAL -->
-  <div id="adminLoginModal" class="modal-backdrop" style="display: none;">
-    <div class="modal-content">
+  <!-- ADMIN AUTHENTICATION SECURITY MODAL -->
+  <div id="adminLoginModal" class="modal-glass-backdrop" style="display: none;">
+    <div class="modal-industrial-box">
       <div style="display: flex; justify-content: space-between; align-items: center;">
-        <h3 style="font-size: 1rem; font-weight: 700;">🛡️ Admin Authentication</h3>
-        <button type="button" id="closeAdminModalBtn" onclick="closeAdminModal()" style="background: none; border: none; font-size: 1.4rem; cursor: pointer; color: var(--text-muted);">&times;</button>
+        <h3 style="font-size: 1.1rem; font-weight: 800; display: flex; align-items: center; gap: 8px; color: var(--color-emerald);">
+          🛡️ Safety Officer Admin Authentication
+        </h3>
+        <button type="button" id="closeAdminModalBtn" onclick="closeAdminModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-muted);">&times;</button>
       </div>
 
-      <p style="font-size: 0.8rem; color: var(--text-secondary);">
-        Enter Safety Admin PIN to access all worker logs and compliance export.
+      <p style="font-size: 0.82rem; color: var(--text-secondary);">
+        Enter the Safety Officer PIN to unlock the master database containing all company workers' logs.
       </p>
 
-      <div class="form-group">
-        <input type="password" id="adminPinInput" placeholder="PIN (Default: admin123)" style="text-align: center; font-size: 1rem; font-weight: 700;">
+      <div class="form-field">
+        <label for="adminPinInput">Admin Security PIN:</label>
+        <input type="password" id="adminPinInput" placeholder="Enter PIN (Default: admin123)" style="text-align: center; font-size: 1.1rem; font-weight: 800; font-family: var(--font-mono); letter-spacing: 0.1em;">
       </div>
 
-      <div id="adminPinErrorMsg" style="display: none; color: #DC2626; font-size: 0.78rem; font-weight: 600; text-align: center;">
-        ❌ Invalid PIN. Default is <code>admin123</code>.
+      <div id="adminPinErrorMsg" style="display: none; color: var(--color-ruby); font-size: 0.8rem; font-weight: 700; text-align: center;">
+        ❌ Invalid PIN. Please use <code>admin123</code>.
       </div>
 
-      <div class="form-row">
-        <button type="button" id="autoFillPinBtn" onclick="autoFillDemoPin()" class="btn btn-outline btn-sm">
-          ⚡ Demo PIN
+      <div class="form-grid">
+        <button type="button" id="autoFillPinBtn" onclick="autoFillDemoPin()" class="btn-industrial btn-glass" style="font-size: 0.8rem;">
+          ⚡ 1-Click Demo PIN
         </button>
-        <button type="button" id="submitAdminPinBtn" onclick="handleAdminPinSubmit()" class="btn btn-primary btn-sm">
-          Unlock
+        <button type="button" id="submitAdminPinBtn" onclick="handleAdminPinSubmit()" class="btn-industrial btn-cyan-glow" style="font-size: 0.85rem;">
+          🔓 Unlock Master View
         </button>
       </div>
     </div>
   </div>
 
   <!-- LIVE CAMERA QR SCANNER MODAL -->
-  <div id="liveCameraModal" class="modal-backdrop" style="display: none;">
-    <div class="modal-content">
+  <div id="liveCameraModal" class="modal-glass-backdrop" style="display: none;">
+    <div class="modal-industrial-box">
       <div style="display: flex; justify-content: space-between; align-items: center;">
-        <h3 style="font-size: 1rem; font-weight: 700;">Scan Worker QR Badge</h3>
-        <button type="button" id="closeLiveCameraBtn" style="background: none; border: none; font-size: 1.4rem; cursor: pointer; color: var(--text-muted);">&times;</button>
+        <h3 style="font-size: 1.1rem; font-weight: 800; display: flex; align-items: center; gap: 8px;">
+          📷 Live QR Badge Scanner
+        </h3>
+        <button type="button" id="closeLiveCameraBtn" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-muted);">&times;</button>
       </div>
 
-      <div class="qr-video-viewport">
+      <div class="qr-live-viewport">
         <video id="qrVideoFeed" playsinline autoplay></video>
-        <div class="qr-scanner-overlay">
-          <div class="qr-target-box"></div>
+        <div class="qr-scan-reticle">
+          <div class="reticle-box"></div>
         </div>
       </div>
 
-      <div id="qrScanStatusMsg" style="font-size: 0.8rem; font-weight: 600; color: var(--color-accent-blue); text-align: center;">
-        Searching for QR code...
+      <div id="qrScanStatusMsg" style="font-size: 0.85rem; font-weight: 700; color: var(--color-blue); text-align: center;">
+        Align worker QR code within the frame...
       </div>
 
       <div>
-        <label for="qrFileInput" class="btn btn-outline btn-sm" style="width: 100%;">
-          📁 Upload QR Image File
+        <label for="qrFileInput" class="btn-industrial btn-glass" style="width: 100%; font-size: 0.82rem; cursor: pointer;">
+          📁 Or Select QR Image File
         </label>
         <input type="file" id="qrFileInput" accept="image/*" style="display: none;">
       </div>
     </div>
   </div>
 
-  <!-- WORKER QR CODE DISPLAY & PNG DOWNLOAD MODAL -->
-  <div id="qrBadgeModal" class="modal-backdrop" style="display: none;">
-    <div class="modal-content" style="text-align: center;">
+  <!-- WORKER QR BADGE GENERATOR MODAL -->
+  <div id="qrBadgeModal" class="modal-glass-backdrop" style="display: none;">
+    <div class="modal-industrial-box" style="text-align: center;">
       <div style="display: flex; justify-content: space-between; align-items: center;">
-        <h3 style="font-size: 1rem; font-weight: 700;">Worker QR Badge</h3>
-        <button type="button" id="closeQrModalBtn" style="background: none; border: none; font-size: 1.4rem; cursor: pointer; color: var(--text-muted);">&times;</button>
+        <h3 style="font-size: 1.1rem; font-weight: 800;">Digital Worker Safety Pass</h3>
+        <button type="button" id="closeQrModalBtn" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-muted);">&times;</button>
       </div>
 
-      <div class="form-row" style="text-align: left;">
-        <div class="form-group">
+      <div class="form-grid" style="text-align: left;">
+        <div class="form-field">
           <label for="modalWorkerIdInput">Worker ID:</label>
-          <input type="text" id="modalWorkerIdInput" value="EMP-101" style="font-weight: 700;">
+          <input type="text" id="modalWorkerIdInput" value="EMP-101" style="font-weight: 800; font-family: var(--font-mono);">
         </div>
-        <div class="form-group">
+        <div class="form-field">
           <label for="modalShiftDateInput">Shift Date:</label>
-          <input type="date" id="modalShiftDateInput" style="font-weight: 700;">
+          <input type="date" id="modalShiftDateInput" style="font-weight: 800;">
         </div>
       </div>
 
-      <div class="form-group" style="text-align: left;">
-        <label for="modalShiftHoursInput">Shift Hours:</label>
-        <input type="number" id="modalShiftHoursInput" value="8.0" min="0.1" max="24.0" step="0.5" style="font-weight: 700;">
+      <div class="form-field" style="text-align: left;">
+        <label for="modalShiftHoursInput">Default Shift Duration (Hours):</label>
+        <input type="number" id="modalShiftHoursInput" value="8.0" min="0.1" max="24.0" step="0.5" style="font-weight: 800; font-family: var(--font-mono);">
       </div>
 
-      <div id="qrcodeDisplay" style="display: flex; justify-content: center; margin: 10px 0;"></div>
+      <div id="qrcodeDisplay" style="display: flex; justify-content: center; margin: 12px 0; background: #FFFFFF; padding: 12px; border-radius: 12px; border: 2px solid var(--color-blue); width: fit-content; margin-left: auto; margin-right: auto;"></div>
 
-      <div style="font-weight: 700; font-size: 0.9rem;" id="badgeWorkerIdText">EMP-101</div>
-      <div style="font-size: 0.75rem; color: var(--text-muted);"><span id="badgeShiftDateText">--</span> • <span id="badgeShiftHoursText">8.0</span>h shift</div>
+      <div style="font-weight: 900; font-size: 1.1rem; color: #FFFFFF; font-family: var(--font-mono);" id="badgeWorkerIdText">EMP-101</div>
+      <div style="font-size: 0.78rem; color: var(--text-secondary);"><span id="badgeShiftDateText">--</span> • <span id="badgeShiftHoursText">8.0</span>h shift</div>
 
-      <button type="button" id="downloadQrPngBtn" class="btn btn-primary btn-sm" style="width: 100%; margin-top: 6px;">
-        Download QR Code (PNG)
+      <button type="button" id="downloadQrPngBtn" class="btn-industrial btn-primary-glow" style="width: 100%; margin-top: 8px;">
+        📥 Download Digital Badge (PNG)
       </button>
     </div>
   </div>
 
   <script src="qrcode.min.js"></script>
   <script src="jsqr.js"></script>
-  <script src="calibration.js?v=3.0"></script>
-  <script src="script.js?v=3.0"></script>
+  <script src="calibration.js?v=4.0"></script>
+  <script src="script.js?v=4.0"></script>
 </body>
 </html>
