@@ -28,9 +28,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // Header Role & Admin Elements
   const headerRoleTag = document.getElementById('headerRoleTag');
   const adminPortalToggleBtn = document.getElementById('adminPortalToggleBtn');
+  const dashboardAdminUnlockBtn = document.getElementById('dashboardAdminUnlockBtn');
   const adminLoginModal = document.getElementById('adminLoginModal');
   const closeAdminModalBtn = document.getElementById('closeAdminModalBtn');
   const adminPinInput = document.getElementById('adminPinInput');
+  const autoFillPinBtn = document.getElementById('autoFillPinBtn');
   const submitAdminPinBtn = document.getElementById('submitAdminPinBtn');
   const adminPinErrorMsg = document.getElementById('adminPinErrorMsg');
 
@@ -172,20 +174,37 @@ document.addEventListener('DOMContentLoaded', () => {
     renderDashboard();
   }
 
+  function openAdminLoginModal() {
+    adminPinInput.value = '';
+    adminPinErrorMsg.style.display = 'none';
+    adminLoginModal.style.display = 'flex';
+    setTimeout(() => {
+      if (adminPinInput) adminPinInput.focus();
+    }, 150);
+  }
+
   adminPortalToggleBtn.addEventListener('click', () => {
     if (state.userRole === 'admin') {
-      // Log out of admin mode
       state.userRole = 'worker';
       updateRoleUI();
       alert('🔒 Switched back to Worker Privacy View.');
     } else {
-      // Open Admin PIN prompt
-      adminPinInput.value = '';
-      adminPinErrorMsg.style.display = 'none';
-      adminLoginModal.style.display = 'flex';
-      setTimeout(() => adminPinInput.focus(), 150);
+      openAdminLoginModal();
     }
   });
+
+  headerRoleTag.addEventListener('click', () => {
+    if (state.userRole === 'admin') {
+      state.userRole = 'worker';
+      updateRoleUI();
+    } else {
+      openAdminLoginModal();
+    }
+  });
+
+  if (dashboardAdminUnlockBtn) {
+    dashboardAdminUnlockBtn.addEventListener('click', openAdminLoginModal);
+  }
 
   if (exitAdminModeBtn) {
     exitAdminModeBtn.addEventListener('click', () => {
@@ -199,6 +218,19 @@ document.addEventListener('DOMContentLoaded', () => {
     adminLoginModal.style.display = 'none';
   });
 
+  adminLoginModal.addEventListener('click', (e) => {
+    if (e.target === adminLoginModal) {
+      adminLoginModal.style.display = 'none';
+    }
+  });
+
+  if (autoFillPinBtn) {
+    autoFillPinBtn.addEventListener('click', () => {
+      adminPinInput.value = 'admin123';
+      handleAdminPinSubmit();
+    });
+  }
+
   submitAdminPinBtn.addEventListener('click', handleAdminPinSubmit);
   adminPinInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') handleAdminPinSubmit();
@@ -206,7 +238,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function handleAdminPinSubmit() {
     const pin = adminPinInput.value.trim();
-    // Default Admin PIN is 'admin123' (or '9999')
     if (pin === 'admin123' || pin === '9999') {
       state.userRole = 'admin';
       adminLoginModal.style.display = 'none';
@@ -288,7 +319,6 @@ document.addEventListener('DOMContentLoaded', () => {
     state.latestResult.twaPpm = twaPpm.toFixed(2);
     state.latestResult.twaNum = twaPpm;
 
-    // Re-evaluate safety status based on updated shift duration
     let status = 'Normal';
     let statusClass = 'status-normal';
 
@@ -303,7 +333,6 @@ document.addEventListener('DOMContentLoaded', () => {
     state.latestResult.status = status;
     state.latestResult.statusClass = statusClass;
 
-    // Also update current saved log entry if matches
     if (state.logs.length > 0) {
       state.logs[0].shiftHours = hours;
       state.logs[0].twaPpm = twaPpm.toFixed(2);

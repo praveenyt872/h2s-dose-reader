@@ -24,9 +24,9 @@
         <div class="subtitle">High-Res Calibration & Role-Based Privacy</div>
       </div>
 
-      <div style="display: flex; align-items: center; gap: 8px;">
+      <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
         <!-- Role Status Badge -->
-        <span id="headerRoleTag" class="role-tag role-worker">👤 Worker</span>
+        <span id="headerRoleTag" class="role-tag role-worker" style="cursor: pointer;" title="Click to Switch Role">👤 Worker</span>
 
         <!-- Admin Portal Switch Button -->
         <button type="button" id="adminPortalToggleBtn" class="btn-role-action" title="Safety Officer Admin Portal">
@@ -331,10 +331,13 @@
       
       <!-- Worker Privacy Banner (Visible in Worker Mode) -->
       <div id="workerPrivacyBanner" class="privacy-banner-card">
-        <div style="font-weight: 800; font-size: 0.9rem; display: flex; align-items: center; gap: 6px;">
-          🔒 Worker Privacy Protection Active
+        <div style="font-weight: 800; font-size: 0.9rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px;">
+          <span>🔒 Worker Privacy Protection Active</span>
+          <button type="button" id="dashboardAdminUnlockBtn" class="btn-role-action" style="background: #3B82F6; color: #FFFFFF; font-size: 0.72rem; padding: 3px 8px;">
+            🛡️ Safety Admin Login
+          </button>
         </div>
-        <div style="font-size: 0.78rem; margin-top: 2px;">
+        <div style="font-size: 0.78rem; margin-top: 4px;">
           Showing exposure records exclusively for <strong><span id="privacyWorkerIdText">EMP-101</span></strong>. Other co-workers' data is confidential and protected.
         </div>
       </div>
@@ -370,7 +373,7 @@
         </div>
       </div>
 
-      <!-- Search Box (Admin can search all, worker can search their own dates) -->
+      <!-- Search Box -->
       <div class="form-group" id="dashboardSearchGroup">
         <input type="text" id="logSearchInput" placeholder="🔍 Search exposure records...">
       </div>
@@ -412,41 +415,45 @@
   </div>
 
   <!-- ADMIN AUTHENTICATION LOGIN MODAL -->
-  <div id="adminLoginModal" class="modal-backdrop" style="display: none;">
-    <div class="modal-content" style="max-width: 380px; text-align: center;">
+  <div id="adminLoginModal" class="modal-backdrop" style="display: none; z-index: 9999;">
+    <div class="modal-content" style="max-width: 380px; text-align: center; border: 2px solid #10B981;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-        <h3 style="font-size: 1.1rem; font-weight: 800; display: flex; align-items: center; gap: 6px;">
-          🛡️ Safety Admin Authentication
+        <h3 style="font-size: 1.1rem; font-weight: 800; display: flex; align-items: center; gap: 6px; color: #065F46;">
+          🛡️ Safety Officer Admin Portal
         </h3>
-        <button type="button" id="closeAdminModalBtn" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
+        <button type="button" id="closeAdminModalBtn" style="background: none; border: none; font-size: 1.6rem; cursor: pointer; color: #64748B;">&times;</button>
       </div>
 
-      <p style="font-size: 0.8rem; color: #64748B;">
-        Enter Safety Officer Security PIN to unlock the complete company-wide database and audit export.
+      <p style="font-size: 0.82rem; color: #64748B;">
+        Enter the Safety Officer Security PIN to unlock full company-wide records and master compliance export.
       </p>
 
       <div class="form-group" style="margin: 12px 0;">
         <label for="adminPinInput">Security PIN / Password:</label>
-        <input type="password" id="adminPinInput" placeholder="Enter PIN (Default: admin123)" style="text-align: center; font-size: 1.1rem; letter-spacing: 0.1em; font-weight: 800;">
+        <input type="password" id="adminPinInput" placeholder="Enter PIN (admin123)" style="text-align: center; font-size: 1.1rem; letter-spacing: 0.1em; font-weight: 800;">
       </div>
 
       <div id="adminPinErrorMsg" style="display: none; color: #EF4444; font-size: 0.8rem; font-weight: 700; margin-bottom: 8px;">
-        ❌ Invalid PIN. Please try again (Demo PIN: admin123).
+        ❌ Invalid PIN. Please enter <code>admin123</code>.
       </div>
 
-      <div class="form-row">
-        <button type="button" id="submitAdminPinBtn" class="btn btn-primary" style="flex: 1;">
-          🔓 Unlock Master Admin View
+      <div class="form-row" style="margin-bottom: 8px;">
+        <button type="button" id="autoFillPinBtn" class="btn btn-outline" style="font-size: 0.75rem; min-height: 40px;">
+          ⚡ Auto-Fill PIN (admin123)
+        </button>
+        <button type="button" id="submitAdminPinBtn" class="btn btn-primary" style="font-size: 0.85rem; min-height: 40px; background: #10B981; color: #FFFFFF;">
+          🔓 Unlock Admin
         </button>
       </div>
-      <div style="font-size: 0.7rem; color: #94A3B8; margin-top: 4px;">
-        * For SIH Demo & Evaluation: Default PIN is <code>admin123</code>
+
+      <div style="font-size: 0.72rem; color: #64748B; background: #F1F5F9; padding: 6px; border-radius: 4px;">
+        * For SIH Demo & Evaluation: Default PIN is <strong>admin123</strong>
       </div>
     </div>
   </div>
 
   <!-- LIVE CAMERA QR SCANNER MODAL -->
-  <div id="liveCameraModal" class="modal-backdrop" style="display: none;">
+  <div id="liveCameraModal" class="modal-backdrop" style="display: none; z-index: 9999;">
     <div class="modal-content" style="max-width: 480px; text-align: center;">
       <div style="display: flex; justify-content: space-between; align-items: center;">
         <h3 style="font-size: 1.1rem; font-weight: 800; display: flex; align-items: center; gap: 6px;">
@@ -479,7 +486,7 @@
   </div>
 
   <!-- WORKER QR CODE DISPLAY & PNG DOWNLOAD MODAL -->
-  <div id="qrBadgeModal" class="modal-backdrop" style="display: none;">
+  <div id="qrBadgeModal" class="modal-backdrop" style="display: none; z-index: 9999;">
     <div class="modal-content print-badge-container" style="text-align: center;">
       <div class="hazard-bar" style="border-radius: 4px 4px 0 0;"></div>
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
