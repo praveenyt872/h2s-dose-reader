@@ -1,6 +1,6 @@
 /**
  * H2S Dose Reader Pro — Industrial Safety & Telemetry Engine
- * Real Biometric Facial Feature Extraction & Offline Matching
+ * Zero-Mean Normalized Facial Biometric Matcher (Individual Identity Verification)
  * Dual-Time Exposure Telemetry (Active Hazard Zone Time vs Full Shift 8h TWA)
  */
 
@@ -51,21 +51,21 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ==========================================
-  // REAL FACIAL BIOMETRIC FEATURE EXTRACTION
+  // ZERO-MEAN NORMALIZED FACIAL BIOMETRIC EXTRACTOR
   // ==========================================
   function extractFaceBiometricVector(videoOrCanvas) {
     const tempCanvas = document.createElement('canvas');
-    const normSize = 100;
+    const normSize = 80;
     tempCanvas.width = normSize;
     tempCanvas.height = normSize;
     const tCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
 
-    // Center Crop
     const srcW = videoOrCanvas.videoWidth || videoOrCanvas.width;
     const srcH = videoOrCanvas.videoHeight || videoOrCanvas.height;
     if (!srcW || !srcH) return null;
 
-    const cropDim = Math.min(srcW, srcH) * 0.75;
+    // Crop center 70% oval face region
+    const cropDim = Math.min(srcW, srcH) * 0.70;
     const sx = (srcW - cropDim) / 2;
     const sy = (srcH - cropDim) / 2;
 
@@ -74,14 +74,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const imgData = tCtx.getImageData(0, 0, normSize, normSize);
     const data = imgData.data;
 
-    // Extract 5x5 spatial grid = 25 blocks x 4 features = 100-D feature vector
-    const grid = 5;
+    // 1. Build an 8x8 spatial luminance grid (64 cells)
+    const grid = 8;
     const blockSize = normSize / grid;
-    const vector = [];
+    const rawLum = [];
+    let sumLum = 0;
 
     for (let gy = 0; gy < grid; gy++) {
       for (let gx = 0; gx < grid; gx++) {
-        let rSum = 0, gSum = 0, bSum = 0, lSum = 0, count = 0;
+        let blockL = 0, count = 0;
         const startX = Math.floor(gx * blockSize);
         const startY = Math.floor(gy * blockSize);
         const endX = Math.floor((gx + 1) * blockSize);
@@ -94,47 +95,89 @@ document.addEventListener('DOMContentLoaded', () => {
             const g = data[idx + 1];
             const b = data[idx + 2];
             const l = 0.299 * r + 0.587 * g + 0.114 * b;
-
-            rSum += r;
-            gSum += g;
-            bSum += b;
-            lSum += l;
+            blockL += l;
             count++;
           }
         }
 
-        const avgL = count > 0 ? (lSum / count) / 255.0 : 0;
-        const avgR = count > 0 ? (rSum / count) / 255.0 : 0;
-        const avgG = count > 0 ? (gSum / count) / 255.0 : 0;
-        const avgB = count > 0 ? (bSum / count) / 255.0 : 0;
-
-        // Features: 1. Luminance, 2. R/G balance, 3. B/R balance, 4. Local Contrast
-        vector.push(avgL);
-        vector.push(avgR / (avgG + 0.01));
-        vector.push(avgB / (avgR + 0.01));
-        vector.push(Math.abs(avgR - avgG));
+        const avgVal = count > 0 ? (blockL / count) : 128;
+        rawLum.push(avgVal);
+        sumLum += avgVal;
       }
     }
 
-    // Normalize to unit vector
-    let norm = 0;
-    for (let i = 0; i < vector.length; i++) norm += vector[i] * vector[i];
-    norm = Math.sqrt(norm);
-    if (norm > 0) {
-      for (let i = 0; i < vector.length; i++) vector[i] /= norm;
+    // 2. Compute Mean & Subtract Mean (Zero-Mean Normalization removes overall room lighting)
+    const mean = sumLum / rawLum.length;
+    const zeroMeanLum = [];
+    let variance = 0;
+
+    for (let i = 0; i < rawLum.length; i++) {
+      const diff = rawLum[i] - mean;
+      zeroMeanLum.push(diff);
+      variance += diff * diff;
     }
 
-    return vector;
+    const stdDev = Math.sqrt(variance / rawLum.length) || 1;
+    const normalizedLum = zeroMeanLum.map(val => val / stdDev);
+
+    // 3. Compute 4x4 Multi-Zone Gradient Directional Filters (Eyebrows, Nose, Mouth contrasts)
+    const gradGrid = 4;
+    const gBlock = normSize / gradGrid;
+    const gradientFeatures = [];
+
+    for (let gy = 0; gy < gradGrid; gy++) {
+      for (let gx = 0; gx < gradGrid; gx++) {
+        let dxSum = 0, dySum = 0, gCount = 0;
+        const startX = Math.floor(gx * gBlock) + 1;
+        const startY = Math.floor(gy * gBlock) + 1;
+        const endX = Math.floor((gx + 1) * gBlock) - 1;
+        const endY = Math.floor((gy + 1) * gBlock) - 1;
+
+        for (let y = startY; y < endY; y += 2) {
+          for (let x = startX; x < endX; x += 2) {
+            const idxR = (y * normSize + (x + 1)) * 4;
+            const idxL = (y * normSize + (x - 1)) * 4;
+            const idxD = ((y + 1) * normSize + x) * 4;
+            const idxU = ((y - 1) * normSize + x) * 4;
+
+            const lumR = 0.299 * data[idxR] + 0.587 * data[idxR+1] + 0.114 * data[idxR+2];
+            const lumL = 0.299 * data[idxL] + 0.587 * data[idxL+1] + 0.114 * data[idxL+2];
+            const lumD = 0.299 * data[idxD] + 0.587 * data[idxD+1] + 0.114 * data[idxD+2];
+            const lumU = 0.299 * data[idxU] + 0.587 * data[idxU+1] + 0.114 * data[idxU+2];
+
+            dxSum += (lumR - lumL);
+            dySum += (lumD - lumU);
+            gCount++;
+          }
+        }
+
+        gradientFeatures.push(gCount > 0 ? (dxSum / gCount) / 100.0 : 0);
+        gradientFeatures.push(gCount > 0 ? (dySum / gCount) / 100.0 : 0);
+      }
+    }
+
+    // 4. Combine into 64 (spatial) + 32 (gradient) = 96-D Differential Facial Signature
+    const fullVector = normalizedLum.concat(gradientFeatures);
+
+    // Normalize full vector to unit magnitude
+    let norm = 0;
+    for (let i = 0; i < fullVector.length; i++) norm += fullVector[i] * fullVector[i];
+    norm = Math.sqrt(norm) || 1;
+
+    for (let i = 0; i < fullVector.length; i++) fullVector[i] /= norm;
+
+    return fullVector;
   }
 
-  function computeCosineSimilarity(vecA, vecB) {
+  function computeZeroMeanCorrelation(vecA, vecB) {
     if (!vecA || !vecB || vecA.length !== vecB.length) return 0;
     let dot = 0;
     for (let i = 0; i < vecA.length; i++) {
       dot += vecA[i] * vecB[i];
     }
-    // Clamp to [0, 1] then convert to percentage
-    return Math.max(0, Math.min(1, dot)) * 100;
+    // Dot product of zero-mean unit vectors is Pearson correlation coefficient r [-1, +1]
+    // Map r in [0, 1] to percentage [0%, 100%]
+    return Math.max(0, Math.min(100, dot * 100));
   }
 
   function updateEnrolledBadgeUI() {
@@ -143,8 +186,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (dbFaceCount) dbFaceCount.textContent = count;
 
     if (count > 0 && !state.faceVerified) {
+      const names = state.enrolledFaces.map(f => f.name || f.workerId).join(', ');
       if (displayWorkerSub) {
-        displayWorkerSub.textContent = `${count} face(s) enrolled. Tap "Scan Face" to unlock.`;
+        displayWorkerSub.textContent = `Enrolled: ${names}. Scan face to unlock.`;
       }
     }
   }
@@ -366,7 +410,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const workerId = (enrollWorkerIdInput ? enrollWorkerIdInput.value.trim() : '') || 'EMP-101';
       const workerName = (enrollWorkerNameInput ? enrollWorkerNameInput.value.trim() : '') || 'Worker';
 
-      // 1. Extract Real Facial Vector
+      // 1. Extract Real Differential Face Feature Vector
       const featureVector = extractFaceBiometricVector(enrollVideoFeed);
       if (!featureVector) {
         alert('Could not detect face in frame. Please center your face.');
@@ -383,7 +427,7 @@ document.addEventListener('DOMContentLoaded', () => {
       eCtx.drawImage(enrollVideoFeed, sx, sy, minD, minD, 0, 0, 160, 160);
       const photoSnapshotUrl = enrollCaptureCanvas.toDataURL('image/jpeg', 0.85);
 
-      // 3. Save to Enrolled Database
+      // 3. Save specific individual profile to offline database
       const newEnrolledFace = {
         workerId,
         name: workerName,
@@ -405,7 +449,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       stopEnrollCamera();
 
-      alert(`✅ FACE ENROLLED SUCCESSFULLY!\n\nWorker: ${workerName} (${workerId})\nBiometric Feature Vector: Stored in Offline DB.\n\nNow tap "2. Scan Face to Verify" to test matching!`);
+      alert(`✅ FACE ENROLLED FOR ${workerName} (${workerId})!\n\nBiometric template stored in offline DB.\nTotal enrolled workers: ${state.enrolledFaces.length}.\n\nNow tap "2. Scan Face to Verify" to authenticate!`);
     });
   }
 
@@ -441,7 +485,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ==========================================
-  // 3. STEP 2: SCAN & VERIFY LIVE FACE (STRICT MATCHING)
+  // 3. STEP 2: SCAN & VERIFY LIVE FACE (INDIVIDUAL DISCRIMINATION)
   // ==========================================
   if (startLiveFaceScanBtn) {
     startLiveFaceScanBtn.addEventListener('click', startLiveFaceVerification);
@@ -495,7 +539,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    // 1. Extract Live Facial Feature Vector from actual camera
+    // 1. Extract Live Zero-Mean Differential Feature Vector
     const liveVector = extractFaceBiometricVector(faceVideoFeed);
     if (!liveVector) {
       alert('Face not detected clearly. Please center your face inside the oval.');
@@ -503,27 +547,27 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // 2. Compare against all enrolled faces in offline database
-    let highestSimilarity = 0;
+    let highestScore = -100;
     let matchedWorker = null;
 
     state.enrolledFaces.forEach(enrolled => {
-      const score = computeCosineSimilarity(liveVector, enrolled.vector);
-      if (score > highestSimilarity) {
-        highestSimilarity = score;
+      const score = computeZeroMeanCorrelation(liveVector, enrolled.vector);
+      if (score > highestScore) {
+        highestScore = score;
         matchedWorker = enrolled;
       }
     });
 
-    if (faceConfidenceVal) faceConfidenceVal.textContent = `${highestSimilarity.toFixed(1)}% Match`;
-    if (faceConfidenceFill) faceConfidenceFill.style.width = `${Math.min(100, highestSimilarity)}%`;
+    if (faceConfidenceVal) faceConfidenceVal.textContent = `${highestScore.toFixed(1)}% Match`;
+    if (faceConfidenceFill) faceConfidenceFill.style.width = `${Math.max(0, Math.min(100, highestScore))}%`;
 
-    // 3. Strict Threshold Verification (80% similarity required)
-    const MATCH_THRESHOLD = 80.0;
+    // 3. Strict Threshold for Zero-Mean Correlation (55% correlation required)
+    const STRICT_THRESHOLD = 55.0;
 
-    if (highestSimilarity >= MATCH_THRESHOLD && matchedWorker) {
+    if (highestScore >= STRICT_THRESHOLD && matchedWorker) {
       // ✅ SUCCESSFUL AUTHENTICATION OF ENROLLED PERSON
       faceConfidenceFill.style.background = '#059669';
-      if (faceScanStatusMsg) faceScanStatusMsg.textContent = `✅ Authenticated: ${matchedWorker.name} (${highestSimilarity.toFixed(1)}%)`;
+      if (faceScanStatusMsg) faceScanStatusMsg.textContent = `✅ Match: ${matchedWorker.name} (${matchedWorker.workerId})`;
 
       setTimeout(() => {
         stopFaceVerificationCamera();
@@ -538,7 +582,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateRoleUI();
 
         if (displayWorkerName) displayWorkerName.textContent = `${matchedWorker.workerId} • ${matchedWorker.name}`;
-        if (displayWorkerSub) displayWorkerSub.textContent = `✓ Biometric Match (${highestSimilarity.toFixed(1)}%) • Profile Unlocked`;
+        if (displayWorkerSub) displayWorkerSub.textContent = `✓ Biometric Match (${highestScore.toFixed(1)}%) • Profile Unlocked`;
         if (workerAvatarBox) {
           if (matchedWorker.avatarUrl) {
             workerAvatarBox.innerHTML = `<img src="${matchedWorker.avatarUrl}">`;
@@ -559,16 +603,16 @@ document.addEventListener('DOMContentLoaded', () => {
           if (stripDropzoneText) stripDropzoneText.textContent = '📸 Tap to open alignment camera for card photo';
         }
 
-        alert(`✅ BIOMETRIC AUTHENTICATION CONFIRMED!\n\nAuthenticated: ${matchedWorker.name} (${matchedWorker.workerId})\nMatch Similarity: ${highestSimilarity.toFixed(1)}%\nStatus: Enrolled Worker Confirmed\n\nChemical Test Strip Ingestion Bay is now UNLOCKED.`);
-      }, 500);
+        alert(`✅ BIOMETRIC MATCH CONFIRMED!\n\nAuthenticated: ${matchedWorker.name} (${matchedWorker.workerId})\nMatch Score: ${highestScore.toFixed(1)}%\n\nChemical Test Strip Bay is now UNLOCKED for ${matchedWorker.name}.`);
+      }, 400);
     } else {
-      // ❌ REJECTED - DIFFERENT PERSON OR STRANGER
+      // ❌ REJECTED - STRANGER / UNRECOGNIZED FACE
       faceConfidenceFill.style.background = '#DC2626';
       if (faceScanStatusMsg) {
-        faceScanStatusMsg.textContent = `❌ Access Denied: Match ${highestSimilarity.toFixed(1)}% (< 80% Threshold)`;
+        faceScanStatusMsg.textContent = `❌ Access Denied: Match ${highestScore.toFixed(1)}% (< 55% Threshold)`;
       }
 
-      alert(`❌ ACCESS DENIED: FACE NOT RECOGNIZED!\n\nMatch Score: ${highestSimilarity.toFixed(1)}% (Below 80% threshold).\n\nYou are NOT recognized as any enrolled worker in the database.\nThe system remains LOCKED.`);
+      alert(`❌ ACCESS DENIED: FACE NOT RECOGNIZED!\n\nBest Match Score: ${highestScore.toFixed(1)}% (Below 55% threshold).\n\nYou do NOT match any enrolled worker in the database.\nThe system remains LOCKED.`);
     }
   }
 
@@ -1313,7 +1357,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let statusClass = 'status-safe';
 
     if (dose >= DOSE_THRESHOLD_HIGH || twaPpm >= TWA_THRESHOLD_HIGH || zoneConcPpm >= 15.0) {
-      status = '🔴 Danger — Action Required (> 15 ppm STEL)';
+      status = '🔴 Danger — STEL / Action Required';
       statusClass = 'status-danger';
     } else if (dose >= DOSE_THRESHOLD_LOW || twaPpm >= TWA_THRESHOLD_LOW || zoneConcPpm >= 10.0) {
       status = '🟡 Elevated — Monitor Exposure (10-15 ppm)';
