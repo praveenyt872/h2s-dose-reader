@@ -406,9 +406,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ==========================================
-  // 4. Navigation & Screen Switching
+  // 4. Navigation & Screen Switching (Mobile Bottom Nav)
   // ==========================================
-  const navStepBtns = document.querySelectorAll('.nav-step-btn');
+  const navStepBtns = document.querySelectorAll('.nav-tab-item, .nav-step-btn');
   const screens = document.querySelectorAll('.screen-view');
 
   function switchScreen(screenId) {
@@ -417,9 +417,12 @@ document.addEventListener('DOMContentLoaded', () => {
     navStepBtns.forEach(t => t.classList.remove('active'));
 
     const targetScreen = document.getElementById(screenId);
-    if (targetScreen) targetScreen.classList.add('active');
+    if (targetScreen) {
+      targetScreen.classList.add('active');
+      targetScreen.scrollTop = 0;
+    }
 
-    const targetTab = document.querySelector(`.nav-step-btn[data-screen="${screenId}"]`);
+    const targetTab = document.querySelector(`.nav-tab-item[data-screen="${screenId}"], .nav-step-btn[data-screen="${screenId}"]`);
     if (targetTab) targetTab.classList.add('active');
 
     if (screenId === 'calibrate-screen') {
