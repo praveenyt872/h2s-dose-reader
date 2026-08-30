@@ -5,6 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>H2S Industrial Exposure Dosimeter & TWA Analytics</title>
 
+  <!-- PWA & Native Offline APK Meta Configuration -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0F172A">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="icon-192.png">
+
   <!-- Clean White Light Theme Stylesheet with Cache-Buster -->
   <link rel="stylesheet" href="style.css?v=11.0">
 </head>
@@ -509,5 +517,16 @@
   <script src="jsqr.js"></script>
   <script src="calibration.js?v=11.0"></script>
   <script src="script.js?v=11.0"></script>
+
+  <!-- Service Worker Registration for 100% Offline Capability -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then((reg) => console.log('[H2S PWA] Offline Service Worker Ready:', reg.scope))
+          .catch((err) => console.warn('[H2S PWA] Service Worker registration failed:', err));
+      });
+    }
+  </script>
 </body>
 </html>
