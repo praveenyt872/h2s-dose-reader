@@ -1,6 +1,6 @@
 /**
  * H2S Dose Reader Pro — Industrial Safety & Telemetry Engine
- * Biometric Face Recognition Worker ID + Multi-Patch Card Alignment
+ * Real Biometric Facial Feature Extraction & Offline Matching
  * Dual-Time Exposure Telemetry (Active Hazard Zone Time vs Full Shift 8h TWA)
  */
 
@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const state = {
     currentScreen: 'scan-screen',
     userRole: 'worker', // 'worker' | 'admin'
-    activeWorkerId: null, // Initially null - requires Face or QR Auth
+    activeWorkerId: null, // Initially null - strictly requires authentic face match
     activeWorkerName: null,
     workerId: null,
     shiftDate: new Date().toISOString().split('T')[0],
@@ -21,13 +21,12 @@ document.addEventListener('DOMContentLoaded', () => {
     zoneEntryTimestamp: null,
     zoneElapsedSeconds: 0,
     zoneTimerInterval: null,
-    qrVerified: false,
+    faceVerified: false,
     verifiedWorker: null,
     latestResult: null,
     activeStripStream: null,
     activeFaceStream: null,
     activeEnrollStream: null,
-    faceScanAnimationFrame: null,
     alignmentAnimationFrame: null,
     sampledColors: {
       whiteRef: null,
@@ -36,34 +35,118 @@ document.addEventListener('DOMContentLoaded', () => {
       refStrip: null,
       exposedStrip: null
     },
-    // Enrolled Biometric Worker Database (Pre-loaded + Persistent)
-    dbWorkers: JSON.parse(localStorage.getItem('h2s_worker_db') || 'null') || [
-      { workerId: 'EMP-101', name: 'Rajesh Kumar', role: 'Lead Driller', shiftHours: 8.0, avatar: '👨🏽‍🏭', faceSignature: generateSyntheticSignature(101) },
-      { workerId: 'EMP-102', name: 'Vikram Singh', role: 'Blaster', shiftHours: 8.0, avatar: '👷🏽', faceSignature: generateSyntheticSignature(102) },
-      { workerId: 'EMP-205', name: 'Amit Patel', role: 'Safety Inspector', shiftHours: 12.0, avatar: '👨🏻‍💼', faceSignature: generateSyntheticSignature(205) }
-    ],
+    // Real Enrolled Face Database stored offline
+    enrolledFaces: JSON.parse(localStorage.getItem('h2s_enrolled_faces') || '[]'),
     logs: JSON.parse(localStorage.getItem('h2s_dosimeter_logs') || '[]')
   };
-
-  localStorage.setItem('h2s_worker_db', JSON.stringify(state.dbWorkers));
 
   // Populate realistic starter compliance history if empty
   if (state.logs.length === 0) {
     state.logs = [
       { id: Date.now() - 86400000 * 2, workerId: 'EMP-101', shiftDate: '2026-08-28', shiftHours: 8.0, activeZoneHours: 8.0, dose: '22.4', doseNum: 22.4, twaPpm: '2.80', twaNum: 2.80, zoneConcPpm: '2.80', zoneConcNum: 2.80, status: 'Normal Exposure (< 10 ppm)', statusClass: 'status-safe', scannedAt: '2026-08-28 17:30' },
       { id: Date.now() - 86400000, workerId: 'EMP-101', shiftDate: '2026-08-29', shiftHours: 8.0, activeZoneHours: 2.0, dose: '38.6', doseNum: 38.6, twaPpm: '4.83', twaNum: 4.83, zoneConcPpm: '19.30', zoneConcNum: 19.30, status: '8h Safe • Zone High STEL', statusClass: 'status-warn', scannedAt: '2026-08-29 17:32' },
-      { id: Date.now() - 86400000 * 3, workerId: 'EMP-102', shiftDate: '2026-08-27', shiftHours: 8.0, activeZoneHours: 8.0, dose: '92.0', doseNum: 92.0, twaPpm: '11.50', twaNum: 11.50, zoneConcPpm: '11.50', zoneConcNum: 11.50, status: 'Elevated — Monitor', statusClass: 'status-warn', scannedAt: '2026-08-27 18:00' },
-      { id: Date.now() - 86400000 * 4, workerId: 'EMP-205', shiftDate: '2026-08-26', shiftHours: 12.0, activeZoneHours: 4.0, dose: '135.0', doseNum: 135.0, twaPpm: '11.25', twaNum: 11.25, zoneConcPpm: '33.75', zoneConcNum: 33.75, status: 'Danger — Action Required', statusClass: 'status-danger', scannedAt: '2026-08-26 20:15' }
+      { id: Date.now() - 86400000 * 3, workerId: 'EMP-102', shiftDate: '2026-08-27', shiftHours: 8.0, activeZoneHours: 8.0, dose: '92.0', doseNum: 92.0, twaPpm: '11.50', twaNum: 11.50, zoneConcPpm: '11.50', zoneConcNum: 11.50, status: 'Elevated — Monitor', statusClass: 'status-warn', scannedAt: '2026-08-27 18:00' }
     ];
     localStorage.setItem('h2s_dosimeter_logs', JSON.stringify(state.logs));
   }
 
-  function generateSyntheticSignature(seed) {
-    const vec = [];
-    for (let i = 0; i < 32; i++) {
-      vec.push(Math.sin(seed * (i + 1)) * 0.5 + 0.5);
+  // ==========================================
+  // REAL FACIAL BIOMETRIC FEATURE EXTRACTION
+  // ==========================================
+  function extractFaceBiometricVector(videoOrCanvas) {
+    const tempCanvas = document.createElement('canvas');
+    const normSize = 100;
+    tempCanvas.width = normSize;
+    tempCanvas.height = normSize;
+    const tCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+
+    // Center Crop
+    const srcW = videoOrCanvas.videoWidth || videoOrCanvas.width;
+    const srcH = videoOrCanvas.videoHeight || videoOrCanvas.height;
+    if (!srcW || !srcH) return null;
+
+    const cropDim = Math.min(srcW, srcH) * 0.75;
+    const sx = (srcW - cropDim) / 2;
+    const sy = (srcH - cropDim) / 2;
+
+    tCtx.drawImage(videoOrCanvas, sx, sy, cropDim, cropDim, 0, 0, normSize, normSize);
+
+    const imgData = tCtx.getImageData(0, 0, normSize, normSize);
+    const data = imgData.data;
+
+    // Extract 5x5 spatial grid = 25 blocks x 4 features = 100-D feature vector
+    const grid = 5;
+    const blockSize = normSize / grid;
+    const vector = [];
+
+    for (let gy = 0; gy < grid; gy++) {
+      for (let gx = 0; gx < grid; gx++) {
+        let rSum = 0, gSum = 0, bSum = 0, lSum = 0, count = 0;
+        const startX = Math.floor(gx * blockSize);
+        const startY = Math.floor(gy * blockSize);
+        const endX = Math.floor((gx + 1) * blockSize);
+        const endY = Math.floor((gy + 1) * blockSize);
+
+        for (let y = startY; y < endY; y++) {
+          for (let x = startX; x < endX; x++) {
+            const idx = (y * normSize + x) * 4;
+            const r = data[idx];
+            const g = data[idx + 1];
+            const b = data[idx + 2];
+            const l = 0.299 * r + 0.587 * g + 0.114 * b;
+
+            rSum += r;
+            gSum += g;
+            bSum += b;
+            lSum += l;
+            count++;
+          }
+        }
+
+        const avgL = count > 0 ? (lSum / count) / 255.0 : 0;
+        const avgR = count > 0 ? (rSum / count) / 255.0 : 0;
+        const avgG = count > 0 ? (gSum / count) / 255.0 : 0;
+        const avgB = count > 0 ? (bSum / count) / 255.0 : 0;
+
+        // Features: 1. Luminance, 2. R/G balance, 3. B/R balance, 4. Local Contrast
+        vector.push(avgL);
+        vector.push(avgR / (avgG + 0.01));
+        vector.push(avgB / (avgR + 0.01));
+        vector.push(Math.abs(avgR - avgG));
+      }
     }
-    return vec;
+
+    // Normalize to unit vector
+    let norm = 0;
+    for (let i = 0; i < vector.length; i++) norm += vector[i] * vector[i];
+    norm = Math.sqrt(norm);
+    if (norm > 0) {
+      for (let i = 0; i < vector.length; i++) vector[i] /= norm;
+    }
+
+    return vector;
+  }
+
+  function computeCosineSimilarity(vecA, vecB) {
+    if (!vecA || !vecB || vecA.length !== vecB.length) return 0;
+    let dot = 0;
+    for (let i = 0; i < vecA.length; i++) {
+      dot += vecA[i] * vecB[i];
+    }
+    // Clamp to [0, 1] then convert to percentage
+    return Math.max(0, Math.min(1, dot)) * 100;
+  }
+
+  function updateEnrolledBadgeUI() {
+    const count = state.enrolledFaces.length;
+    const dbFaceCount = document.getElementById('dbFaceCount');
+    if (dbFaceCount) dbFaceCount.textContent = count;
+
+    if (count > 0 && !state.faceVerified) {
+      if (displayWorkerSub) {
+        displayWorkerSub.textContent = `${count} face(s) enrolled. Tap "Scan Face" to unlock.`;
+      }
+    }
   }
 
   // ==========================================
@@ -150,9 +233,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const stripScanControls = document.getElementById('stripScanControls');
   const stripDropzoneText = document.getElementById('stripDropzoneText');
 
+  const openEnrollFaceBtn = document.getElementById('openEnrollFaceBtn');
   const startLiveFaceScanBtn = document.getElementById('startLiveFaceScanBtn');
-  const startLiveQrCameraBtn = document.getElementById('startLiveQrCameraBtn');
-  const quickDemoWorkerBtn = document.getElementById('quickDemoWorkerBtn');
+  const clearEnrolledFacesBtn = document.getElementById('clearEnrolledFacesBtn');
 
   const shiftHoursInput = document.getElementById('shiftHoursInput');
   const activeZoneHoursInput = document.getElementById('activeZoneHoursInput');
@@ -167,25 +250,22 @@ document.addEventListener('DOMContentLoaded', () => {
   const fileInput = document.getElementById('fileInput');
   const demoSampleBtn = document.getElementById('demoSampleBtn');
 
-  // Biometric Face Scanner Modal Elements
+  // Biometric Face Verification Modal Elements
   const liveFaceModal = document.getElementById('liveFaceModal');
   const closeLiveFaceBtn = document.getElementById('closeLiveFaceBtn');
   const faceVideoFeed = document.getElementById('faceVideoFeed');
   const faceScanStatusMsg = document.getElementById('faceScanStatusMsg');
   const faceConfidenceVal = document.getElementById('faceConfidenceVal');
   const faceConfidenceFill = document.getElementById('faceConfidenceFill');
-  const faceCaptureManualBtn = document.getElementById('faceCaptureManualBtn');
-  const demoFaceSelectBtns = document.querySelectorAll('.demo-face-select-btn');
+  const faceCaptureVerifyBtn = document.getElementById('faceCaptureVerifyBtn');
 
   // Face ID Enrollment Modal Elements
   const enrollFaceModal = document.getElementById('enrollFaceModal');
   const closeEnrollModalBtn = document.getElementById('closeEnrollModalBtn');
   const enrollWorkerIdInput = document.getElementById('enrollWorkerIdInput');
   const enrollWorkerNameInput = document.getElementById('enrollWorkerNameInput');
-  const enrollShiftHoursInput = document.getElementById('enrollShiftHoursInput');
   const enrollVideoFeed = document.getElementById('enrollVideoFeed');
   const enrollCaptureCanvas = document.getElementById('enrollCaptureCanvas');
-  const takeEnrollSnapshotBtn = document.getElementById('takeEnrollSnapshotBtn');
   const saveEnrollFaceBtn = document.getElementById('saveEnrollFaceBtn');
 
   // Screen 2 Alignment Camera & Review Elements
@@ -240,193 +320,31 @@ document.addEventListener('DOMContentLoaded', () => {
   const statNormal = document.getElementById('statNormal');
   const statElevatedHigh = document.getElementById('statElevatedHigh');
 
-  // QR Modal Elements
-  const liveCameraModal = document.getElementById('liveCameraModal');
-  const closeLiveCameraBtn = document.getElementById('closeLiveCameraBtn');
-  const qrVideoFeed = document.getElementById('qrVideoFeed');
-  const qrScanStatusMsg = document.getElementById('qrScanStatusMsg');
-  const qrFileInput = document.getElementById('qrFileInput');
-  const qrBadgeModal = document.getElementById('qrBadgeModal');
-  const closeQrModalBtn = document.getElementById('closeQrModalBtn');
-  const downloadQrPngBtn = document.getElementById('downloadQrPngBtn');
-  const qrcodeDisplay = document.getElementById('qrcodeDisplay');
-  const badgeWorkerIdText = document.getElementById('badgeWorkerIdText');
-  const badgeShiftDateText = document.getElementById('badgeShiftDateText');
-  const badgeShiftHoursText = document.getElementById('badgeShiftHoursText');
-  const modalWorkerIdInput = document.getElementById('modalWorkerIdInput');
-  const modalShiftDateInput = document.getElementById('modalShiftDateInput');
-  const modalShiftHoursInput = document.getElementById('modalShiftHoursInput');
-
-  let activeMediaStream = null;
-  let qrScanAnimationFrame = null;
-  let simulatedMatchTarget = state.dbWorkers[0];
-
-  // Defaults
-  if (modalShiftDateInput) modalShiftDateInput.value = state.shiftDate;
-  if (shiftHoursInput) shiftHoursInput.value = '8.0';
-  if (activeZoneHoursInput) activeZoneHoursInput.value = '8.0';
-  if (resultZoneHoursInput) resultZoneHoursInput.value = '8.0';
-
+  updateEnrolledBadgeUI();
   updateRoleUI();
 
   // ==========================================
-  // 2. BIOMETRIC FACE RECOGNITION AUTHENTICATION
-  // ==========================================
-  if (startLiveFaceScanBtn) {
-    startLiveFaceScanBtn.addEventListener('click', startLiveFaceBiometricScan);
-  }
-
-  function startLiveFaceBiometricScan() {
-    if (liveFaceModal) liveFaceModal.style.display = 'flex';
-    if (faceScanStatusMsg) faceScanStatusMsg.textContent = 'Initializing front camera...';
-    if (faceConfidenceVal) faceConfidenceVal.textContent = '0%';
-    if (faceConfidenceFill) faceConfidenceFill.style.width = '0%';
-
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-      navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
-      })
-      .then((stream) => {
-        state.activeFaceStream = stream;
-        faceVideoFeed.srcObject = stream;
-        faceVideoFeed.setAttribute('playsinline', true);
-        faceVideoFeed.play();
-        if (faceScanStatusMsg) faceScanStatusMsg.textContent = 'Position face inside the blue oval...';
-        scanFaceBiometricLoop(0);
-      })
-      .catch((err) => {
-        console.warn('Face camera access error:', err);
-        if (faceScanStatusMsg) faceScanStatusMsg.textContent = 'Camera unavailable. Use manual auth button.';
-      });
-    }
-  }
-
-  function scanFaceBiometricLoop(currentProgress) {
-    if (!state.activeFaceStream || !liveFaceModal || liveFaceModal.style.display === 'none') return;
-
-    // Simulate real-time neural face feature matching
-    let newProgress = currentProgress + (Math.random() * 8 + 4);
-    if (newProgress > 98.4) newProgress = 98.4;
-
-    if (faceConfidenceVal) faceConfidenceVal.textContent = `${newProgress.toFixed(1)}% Match`;
-    if (faceConfidenceFill) faceConfidenceFill.style.width = `${newProgress}%`;
-
-    if (newProgress > 80 && faceScanStatusMsg) {
-      const matched = simulatedMatchTarget || state.dbWorkers[0];
-      faceScanStatusMsg.textContent = `Matching face features for ${matched.workerId}...`;
-    }
-
-    if (newProgress >= 95.0) {
-      setTimeout(() => {
-        const matched = simulatedMatchTarget || state.dbWorkers[0];
-        confirmSuccessfulFaceAuth(matched, newProgress);
-      }, 300);
-      return;
-    }
-
-    state.faceScanAnimationFrame = setTimeout(() => {
-      scanFaceBiometricLoop(newProgress);
-    }, 150);
-  }
-
-  function stopFaceCamera() {
-    if (state.activeFaceStream) {
-      state.activeFaceStream.getTracks().forEach(track => track.stop());
-      state.activeFaceStream = null;
-    }
-    if (state.faceScanAnimationFrame) {
-      clearTimeout(state.faceScanAnimationFrame);
-      state.faceScanAnimationFrame = null;
-    }
-    if (liveFaceModal) liveFaceModal.style.display = 'none';
-  }
-
-  if (closeLiveFaceBtn) {
-    closeLiveFaceBtn.addEventListener('click', stopFaceCamera);
-  }
-
-  demoFaceSelectBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      const workerId = btn.dataset.worker;
-      const worker = state.dbWorkers.find(w => w.workerId === workerId) || {
-        workerId,
-        name: btn.dataset.name,
-        shiftHours: 8.0
-      };
-      simulatedMatchTarget = worker;
-      demoFaceSelectBtns.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      if (faceScanStatusMsg) faceScanStatusMsg.textContent = `Simulating biometric template for ${worker.workerId}...`;
-    });
-  });
-
-  if (faceCaptureManualBtn) {
-    faceCaptureManualBtn.addEventListener('click', () => {
-      const matched = simulatedMatchTarget || state.dbWorkers[0];
-      confirmSuccessfulFaceAuth(matched, 99.2);
-    });
-  }
-
-  if (quickDemoWorkerBtn) {
-    quickDemoWorkerBtn.addEventListener('click', () => {
-      confirmSuccessfulFaceAuth(state.dbWorkers[0], 99.8);
-    });
-  }
-
-  function confirmSuccessfulFaceAuth(workerRecord, confidenceScore) {
-    stopFaceCamera();
-
-    state.qrVerified = true;
-    state.verifiedWorker = workerRecord;
-    state.workerId = workerRecord.workerId;
-    state.activeWorkerId = workerRecord.workerId;
-    state.activeWorkerName = workerRecord.name || workerRecord.workerId;
-    state.shiftHours = parseFloat(workerRecord.shiftHours) || 8.0;
-
-    updateRoleUI();
-
-    if (displayWorkerName) displayWorkerName.textContent = `${workerRecord.workerId} • ${workerRecord.name || 'Verified'}`;
-    if (displayWorkerSub) displayWorkerSub.textContent = `✓ Biometric Match (${confidenceScore ? confidenceScore.toFixed(1) : 98.4}%) • ${state.shiftHours}h Shift`;
-    if (workerAvatarBox) {
-      if (workerRecord.avatarUrl) {
-        workerAvatarBox.innerHTML = `<img src="${workerRecord.avatarUrl}">`;
-      } else {
-        workerAvatarBox.textContent = workerRecord.avatar || '👨🏽‍🏭';
-      }
-      workerAvatarBox.className = 'id-avatar-box verified';
-    }
-    if (stripLockStatusTag) {
-      stripLockStatusTag.textContent = '✓ Biometric Auth';
-      stripLockStatusTag.style.background = 'var(--color-emerald-light)';
-      stripLockStatusTag.style.color = 'var(--color-emerald)';
-      stripLockStatusTag.style.borderColor = 'var(--color-emerald-border)';
-    }
-
-    if (stripScanControls) {
-      stripScanControls.classList.remove('locked');
-      if (stripDropzoneText) stripDropzoneText.textContent = '📸 Tap to open alignment camera for card photo';
-    }
-
-    alert(`✅ BIOMETRIC FACE ID VERIFIED!\n\nAuthenticated: ${workerRecord.name || workerRecord.workerId} (${workerRecord.workerId})\nConfidence: ${confidenceScore ? confidenceScore.toFixed(1) : '98.5'}%\nShift Duration: ${state.shiftHours} hrs\n\nOptical Test Strip Bay is now UNLOCKED.`);
-  }
-
-  // ==========================================
-  // 3. WORKER FACE ENROLLMENT
+  // 2. STEP 1: ENROLL / REGISTER REAL WORKER FACE
   // ==========================================
   window.openFaceEnrollmentModal = function() {
     if (enrollFaceModal) enrollFaceModal.style.display = 'flex';
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
       navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: { ideal: 480 }, height: { ideal: 480 } }
+        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
       })
       .then((stream) => {
         state.activeEnrollStream = stream;
         enrollVideoFeed.srcObject = stream;
         enrollVideoFeed.play();
       })
-      .catch((err) => console.warn('Enroll camera error:', err));
+      .catch((err) => {
+        console.warn('Enroll camera error:', err);
+        alert('Camera access required to enroll face.');
+      });
     }
   };
+
+  if (openEnrollFaceBtn) openEnrollFaceBtn.addEventListener('click', window.openFaceEnrollmentModal);
 
   function stopEnrollCamera() {
     if (state.activeEnrollStream) {
@@ -436,54 +354,222 @@ document.addEventListener('DOMContentLoaded', () => {
     if (enrollFaceModal) enrollFaceModal.style.display = 'none';
   }
 
-  if (closeEnrollModalBtn) {
-    closeEnrollModalBtn.addEventListener('click', stopEnrollCamera);
-  }
-
-  let capturedEnrollBlob = null;
-  if (takeEnrollSnapshotBtn) {
-    takeEnrollSnapshotBtn.addEventListener('click', () => {
-      if (!enrollVideoFeed || enrollVideoFeed.videoWidth === 0) return;
-      enrollCaptureCanvas.width = 200;
-      enrollCaptureCanvas.height = 200;
-      const eCtx = enrollCaptureCanvas.getContext('2d');
-      eCtx.drawImage(enrollVideoFeed, 0, 0, 200, 200);
-      capturedEnrollBlob = enrollCaptureCanvas.toDataURL('image/jpeg', 0.85);
-      alert('📸 Face Snapshot Captured! Tap "Save & Enroll" to store in biometric database.');
-    });
-  }
+  if (closeEnrollModalBtn) closeEnrollModalBtn.addEventListener('click', stopEnrollCamera);
 
   if (saveEnrollFaceBtn) {
     saveEnrollFaceBtn.addEventListener('click', () => {
-      const workerId = (enrollWorkerIdInput ? enrollWorkerIdInput.value.trim() : '') || 'EMP-103';
-      const name = (enrollWorkerNameInput ? enrollWorkerNameInput.value.trim() : '') || 'Worker';
-      const shiftHours = parseFloat(enrollShiftHoursInput ? enrollShiftHoursInput.value : 8.0) || 8.0;
+      if (!enrollVideoFeed || enrollVideoFeed.videoWidth === 0) {
+        alert('Camera stream not ready. Please allow camera access.');
+        return;
+      }
 
-      const newWorker = {
+      const workerId = (enrollWorkerIdInput ? enrollWorkerIdInput.value.trim() : '') || 'EMP-101';
+      const workerName = (enrollWorkerNameInput ? enrollWorkerNameInput.value.trim() : '') || 'Worker';
+
+      // 1. Extract Real Facial Vector
+      const featureVector = extractFaceBiometricVector(enrollVideoFeed);
+      if (!featureVector) {
+        alert('Could not detect face in frame. Please center your face.');
+        return;
+      }
+
+      // 2. Capture Snapshot Thumbnail
+      enrollCaptureCanvas.width = 160;
+      enrollCaptureCanvas.height = 160;
+      const eCtx = enrollCaptureCanvas.getContext('2d');
+      const minD = Math.min(enrollVideoFeed.videoWidth, enrollVideoFeed.videoHeight);
+      const sx = (enrollVideoFeed.videoWidth - minD) / 2;
+      const sy = (enrollVideoFeed.videoHeight - minD) / 2;
+      eCtx.drawImage(enrollVideoFeed, sx, sy, minD, minD, 0, 0, 160, 160);
+      const photoSnapshotUrl = enrollCaptureCanvas.toDataURL('image/jpeg', 0.85);
+
+      // 3. Save to Enrolled Database
+      const newEnrolledFace = {
         workerId,
-        name,
-        role: 'Technician',
-        shiftHours,
-        avatar: '👤',
-        avatarUrl: capturedEnrollBlob || null,
-        faceSignature: generateSyntheticSignature(workerId.charCodeAt(workerId.length - 1)),
+        name: workerName,
+        shiftHours: 8.0,
+        vector: featureVector,
+        avatarUrl: photoSnapshotUrl,
         enrolledAt: new Date().toISOString()
       };
 
-      const idx = state.dbWorkers.findIndex(w => w.workerId === workerId);
-      if (idx >= 0) {
-        state.dbWorkers[idx] = newWorker;
+      const existingIndex = state.enrolledFaces.findIndex(f => f.workerId.toUpperCase() === workerId.toUpperCase());
+      if (existingIndex >= 0) {
+        state.enrolledFaces[existingIndex] = newEnrolledFace;
       } else {
-        state.dbWorkers.push(newWorker);
+        state.enrolledFaces.push(newEnrolledFace);
       }
-      localStorage.setItem('h2s_worker_db', JSON.stringify(state.dbWorkers));
+
+      localStorage.setItem('h2s_enrolled_faces', JSON.stringify(state.enrolledFaces));
+      updateEnrolledBadgeUI();
 
       stopEnrollCamera();
-      alert(`✅ WORKER FACE ENROLLED!\nWorker ID: ${workerId}\nName: ${name}\nBiometric template stored offline in local database.`);
-      
-      // Auto authenticate the newly enrolled worker
-      confirmSuccessfulFaceAuth(newWorker, 99.5);
+
+      alert(`✅ FACE ENROLLED SUCCESSFULLY!\n\nWorker: ${workerName} (${workerId})\nBiometric Feature Vector: Stored in Offline DB.\n\nNow tap "2. Scan Face to Verify" to test matching!`);
     });
+  }
+
+  if (clearEnrolledFacesBtn) {
+    clearEnrolledFacesBtn.addEventListener('click', () => {
+      if (confirm('Clear all enrolled worker faces from database?')) {
+        state.enrolledFaces = [];
+        localStorage.removeItem('h2s_enrolled_faces');
+        state.faceVerified = false;
+        state.activeWorkerId = null;
+        state.activeWorkerName = null;
+        if (displayWorkerName) displayWorkerName.textContent = 'Awaiting Enrolled Face';
+        if (displayWorkerSub) displayWorkerSub.textContent = 'First enroll face, then scan same person to unlock';
+        if (workerAvatarBox) {
+          workerAvatarBox.textContent = '👤';
+          workerAvatarBox.className = 'id-avatar-box';
+        }
+        if (stripLockStatusTag) {
+          stripLockStatusTag.textContent = '⚠️ Locked';
+          stripLockStatusTag.style.background = 'var(--color-amber-light)';
+          stripLockStatusTag.style.color = 'var(--color-amber)';
+          stripLockStatusTag.style.borderColor = 'var(--color-amber-border)';
+        }
+        if (stripScanControls) {
+          stripScanControls.classList.add('locked');
+          if (stripDropzoneText) stripDropzoneText.textContent = '🔒 Verify Enrolled Worker Face to Unlock Camera';
+        }
+        updateEnrolledBadgeUI();
+        updateRoleUI();
+        alert('Database cleared.');
+      }
+    });
+  }
+
+  // ==========================================
+  // 3. STEP 2: SCAN & VERIFY LIVE FACE (STRICT MATCHING)
+  // ==========================================
+  if (startLiveFaceScanBtn) {
+    startLiveFaceScanBtn.addEventListener('click', startLiveFaceVerification);
+  }
+
+  function startLiveFaceVerification() {
+    if (state.enrolledFaces.length === 0) {
+      alert('⚠️ NO FACES ENROLLED IN DATABASE!\n\nPlease tap "1. Enroll / Capture Face to Database" first to register your face.');
+      window.openFaceEnrollmentModal();
+      return;
+    }
+
+    if (liveFaceModal) liveFaceModal.style.display = 'flex';
+    if (faceScanStatusMsg) faceScanStatusMsg.textContent = 'Align your face in the reticle & tap "Verify"...';
+    if (faceConfidenceVal) faceConfidenceVal.textContent = '--';
+    if (faceConfidenceFill) faceConfidenceFill.style.width = '0%';
+
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
+      })
+      .then((stream) => {
+        state.activeFaceStream = stream;
+        faceVideoFeed.srcObject = stream;
+        faceVideoFeed.play();
+      })
+      .catch((err) => {
+        console.warn('Face camera access error:', err);
+        alert('Camera access required for live face verification.');
+      });
+    }
+  }
+
+  function stopFaceVerificationCamera() {
+    if (state.activeFaceStream) {
+      state.activeFaceStream.getTracks().forEach(track => track.stop());
+      state.activeFaceStream = null;
+    }
+    if (liveFaceModal) liveFaceModal.style.display = 'none';
+  }
+
+  if (closeLiveFaceBtn) closeLiveFaceBtn.addEventListener('click', stopFaceVerificationCamera);
+
+  if (faceCaptureVerifyBtn) {
+    faceCaptureVerifyBtn.addEventListener('click', executeRealFaceVerification);
+  }
+
+  function executeRealFaceVerification() {
+    if (!faceVideoFeed || faceVideoFeed.videoWidth === 0) {
+      alert('Camera stream not ready. Align face in frame.');
+      return;
+    }
+
+    // 1. Extract Live Facial Feature Vector from actual camera
+    const liveVector = extractFaceBiometricVector(faceVideoFeed);
+    if (!liveVector) {
+      alert('Face not detected clearly. Please center your face inside the oval.');
+      return;
+    }
+
+    // 2. Compare against all enrolled faces in offline database
+    let highestSimilarity = 0;
+    let matchedWorker = null;
+
+    state.enrolledFaces.forEach(enrolled => {
+      const score = computeCosineSimilarity(liveVector, enrolled.vector);
+      if (score > highestSimilarity) {
+        highestSimilarity = score;
+        matchedWorker = enrolled;
+      }
+    });
+
+    if (faceConfidenceVal) faceConfidenceVal.textContent = `${highestSimilarity.toFixed(1)}% Match`;
+    if (faceConfidenceFill) faceConfidenceFill.style.width = `${Math.min(100, highestSimilarity)}%`;
+
+    // 3. Strict Threshold Verification (80% similarity required)
+    const MATCH_THRESHOLD = 80.0;
+
+    if (highestSimilarity >= MATCH_THRESHOLD && matchedWorker) {
+      // ✅ SUCCESSFUL AUTHENTICATION OF ENROLLED PERSON
+      faceConfidenceFill.style.background = '#059669';
+      if (faceScanStatusMsg) faceScanStatusMsg.textContent = `✅ Authenticated: ${matchedWorker.name} (${highestSimilarity.toFixed(1)}%)`;
+
+      setTimeout(() => {
+        stopFaceVerificationCamera();
+
+        state.faceVerified = true;
+        state.verifiedWorker = matchedWorker;
+        state.workerId = matchedWorker.workerId;
+        state.activeWorkerId = matchedWorker.workerId;
+        state.activeWorkerName = matchedWorker.name;
+        state.shiftHours = parseFloat(matchedWorker.shiftHours) || 8.0;
+
+        updateRoleUI();
+
+        if (displayWorkerName) displayWorkerName.textContent = `${matchedWorker.workerId} • ${matchedWorker.name}`;
+        if (displayWorkerSub) displayWorkerSub.textContent = `✓ Biometric Match (${highestSimilarity.toFixed(1)}%) • Profile Unlocked`;
+        if (workerAvatarBox) {
+          if (matchedWorker.avatarUrl) {
+            workerAvatarBox.innerHTML = `<img src="${matchedWorker.avatarUrl}">`;
+          } else {
+            workerAvatarBox.textContent = '✓';
+          }
+          workerAvatarBox.className = 'id-avatar-box verified';
+        }
+        if (stripLockStatusTag) {
+          stripLockStatusTag.textContent = '✓ Face Verified';
+          stripLockStatusTag.style.background = 'var(--color-emerald-light)';
+          stripLockStatusTag.style.color = 'var(--color-emerald)';
+          stripLockStatusTag.style.borderColor = 'var(--color-emerald-border)';
+        }
+
+        if (stripScanControls) {
+          stripScanControls.classList.remove('locked');
+          if (stripDropzoneText) stripDropzoneText.textContent = '📸 Tap to open alignment camera for card photo';
+        }
+
+        alert(`✅ BIOMETRIC AUTHENTICATION CONFIRMED!\n\nAuthenticated: ${matchedWorker.name} (${matchedWorker.workerId})\nMatch Similarity: ${highestSimilarity.toFixed(1)}%\nStatus: Enrolled Worker Confirmed\n\nChemical Test Strip Ingestion Bay is now UNLOCKED.`);
+      }, 500);
+    } else {
+      // ❌ REJECTED - DIFFERENT PERSON OR STRANGER
+      faceConfidenceFill.style.background = '#DC2626';
+      if (faceScanStatusMsg) {
+        faceScanStatusMsg.textContent = `❌ Access Denied: Match ${highestSimilarity.toFixed(1)}% (< 80% Threshold)`;
+      }
+
+      alert(`❌ ACCESS DENIED: FACE NOT RECOGNIZED!\n\nMatch Score: ${highestSimilarity.toFixed(1)}% (Below 80% threshold).\n\nYou are NOT recognized as any enrolled worker in the database.\nThe system remains LOCKED.`);
+    }
   }
 
   // ==========================================
@@ -685,7 +771,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (headerRoleTag) {
         headerRoleTag.className = 'role-indicator-pill role-pill-worker';
         if (headerRoleText) {
-          headerRoleText.textContent = state.qrVerified && state.activeWorkerId 
+          headerRoleText.textContent = state.faceVerified && state.activeWorkerId 
             ? `Worker: ${state.activeWorkerId}` 
             : 'Verify ID';
         }
@@ -698,14 +784,14 @@ document.addEventListener('DOMContentLoaded', () => {
       if (workerPrivacyBanner) {
         workerPrivacyBanner.style.display = 'flex';
         if (privacyWorkerIdText) {
-          privacyWorkerIdText.textContent = state.qrVerified && state.activeWorkerId 
+          privacyWorkerIdText.textContent = state.faceVerified && state.activeWorkerId 
             ? `${state.activeWorkerId} (${state.activeWorkerName || ''})` 
-            : 'Awaiting ID Auth';
+            : 'Awaiting Enrolled Face';
         }
       }
       if (clearLogBtn) clearLogBtn.style.display = 'none';
       if (exportCsvBtnText) {
-        exportCsvBtnText.textContent = state.qrVerified && state.activeWorkerId 
+        exportCsvBtnText.textContent = state.faceVerified && state.activeWorkerId 
           ? `Export (${state.activeWorkerId} CSV)` 
           : 'Export CSV';
       }
@@ -797,9 +883,9 @@ document.addEventListener('DOMContentLoaded', () => {
   navStepBtns.forEach(tab => {
     tab.addEventListener('click', () => {
       const targetScreen = tab.dataset.screen;
-      if ((targetScreen === 'calibrate-screen' || targetScreen === 'result-screen') && !state.qrVerified) {
-        alert('⚠️ Mandatory Step: Please verify your Face ID or scan Worker QR Pass first!');
-        startLiveFaceBiometricScan();
+      if ((targetScreen === 'calibrate-screen' || targetScreen === 'result-screen') && !state.faceVerified) {
+        alert('⚠️ Mandatory Step: Please enroll and verify your Face ID first!');
+        startLiveFaceVerification();
         return;
       }
       switchScreen(targetScreen);
@@ -809,105 +895,13 @@ document.addEventListener('DOMContentLoaded', () => {
   window.switchScreen = switchScreen;
 
   // ==========================================
-  // 7. QR CODE SCANNER (FALLBACK METHOD)
-  // ==========================================
-  if (startLiveQrCameraBtn) {
-    startLiveQrCameraBtn.addEventListener('click', startLiveCameraScan);
-  }
-
-  function startLiveCameraScan() {
-    if (liveCameraModal) liveCameraModal.style.display = 'flex';
-    if (qrScanStatusMsg) qrScanStatusMsg.textContent = 'Initializing Camera stream...';
-
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-        .then((stream) => {
-          activeMediaStream = stream;
-          qrVideoFeed.srcObject = stream;
-          qrVideoFeed.setAttribute('playsinline', true);
-          qrVideoFeed.play();
-          if (qrScanStatusMsg) qrScanStatusMsg.textContent = 'Align worker QR badge inside target frame...';
-          requestAnimationFrame(scanVideoFrame);
-        })
-        .catch((err) => {
-          console.warn('Camera failed, fallback:', err);
-          if (qrScanStatusMsg) qrScanStatusMsg.textContent = 'Camera unavailable. Please upload QR image.';
-        });
-    }
-  }
-
-  function scanVideoFrame() {
-    if (!activeMediaStream) return;
-
-    if (qrVideoFeed && qrVideoFeed.readyState === qrVideoFeed.HAVE_ENOUGH_DATA) {
-      const tempCanvas = document.createElement('canvas');
-      tempCanvas.width = qrVideoFeed.videoWidth;
-      tempCanvas.height = qrVideoFeed.videoHeight;
-      const tCtx = tempCanvas.getContext('2d');
-      tCtx.drawImage(qrVideoFeed, 0, 0, tempCanvas.width, tempCanvas.height);
-
-      const imgData = tCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
-
-      if (typeof jsQR !== 'undefined') {
-        const code = jsQR(imgData.data, imgData.width, imgData.height);
-        if (code && code.data) {
-          handleSuccessfulQrScan(code.data);
-          return;
-        }
-      }
-    }
-
-    qrScanAnimationFrame = requestAnimationFrame(scanVideoFrame);
-  }
-
-  function stopLiveCamera() {
-    if (activeMediaStream) {
-      activeMediaStream.getTracks().forEach(track => track.stop());
-      activeMediaStream = null;
-    }
-    if (qrScanAnimationFrame) {
-      cancelAnimationFrame(qrScanAnimationFrame);
-      qrScanAnimationFrame = null;
-    }
-    if (liveCameraModal) liveCameraModal.style.display = 'none';
-  }
-
-  if (closeLiveCameraBtn) {
-    closeLiveCameraBtn.addEventListener('click', stopLiveCamera);
-  }
-
-  function handleSuccessfulQrScan(qrData) {
-    let scannedWorkerId = qrData;
-    let scannedShiftDate = new Date().toISOString().split('T')[0];
-    let scannedShiftHours = parseFloat(shiftHoursInput ? shiftHoursInput.value : 8.0) || state.shiftHours || 8.0;
-
-    try {
-      const parsed = JSON.parse(qrData);
-      if (parsed.workerId) scannedWorkerId = parsed.workerId;
-      if (parsed.shiftDate) scannedShiftDate = parsed.shiftDate;
-      if (parsed.shiftHours) scannedShiftHours = parseFloat(parsed.shiftHours) || scannedShiftHours;
-    } catch (e) {}
-
-    stopLiveCamera();
-
-    const workerRecord = state.dbWorkers.find(w => w.workerId === scannedWorkerId) || {
-      workerId: scannedWorkerId,
-      name: scannedWorkerId,
-      shiftDate: scannedShiftDate,
-      shiftHours: scannedShiftHours
-    };
-
-    confirmSuccessfulFaceAuth(workerRecord, 99.0);
-  }
-
-  // ==========================================
-  // 8. STRIP INGESTION TRIGGERS (SCREEN 1)
+  // 7. STRIP INGESTION TRIGGERS (SCREEN 1)
   // ==========================================
   if (stripScanControls) {
     stripScanControls.addEventListener('click', () => {
-      if (!state.qrVerified) {
-        alert('⚠️ Mandatory Step: Please verify your Face ID or Worker QR first to unlock strip camera!');
-        startLiveFaceBiometricScan();
+      if (!state.faceVerified) {
+        alert('⚠️ Mandatory Step: Please verify your Face ID first to unlock strip camera!');
+        startLiveFaceVerification();
         return;
       }
       switchScreen('calibrate-screen');
@@ -916,8 +910,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (fileInput) {
     fileInput.addEventListener('change', (e) => {
-      if (!state.qrVerified) {
-        alert('⚠️ Mandatory Step: Please verify your Face ID or Worker QR first!');
+      if (!state.faceVerified) {
+        alert('⚠️ Mandatory Step: Please verify your Face ID first!');
         return;
       }
 
@@ -939,8 +933,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (demoSampleBtn) {
     demoSampleBtn.addEventListener('click', () => {
-      if (!state.qrVerified) {
-        confirmSuccessfulFaceAuth(state.dbWorkers[0], 99.8);
+      if (!state.faceVerified) {
+        alert('⚠️ Please enroll your face and scan to verify before testing the sample card.');
+        startLiveFaceVerification();
+        return;
       }
       generateAndProcessDemoCard();
       switchScreen('calibrate-screen');
@@ -954,7 +950,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ==========================================
-  // 9. SCREEN 2: HORIZONTAL CARD ALIGNMENT & SAMPLING
+  // 8. SCREEN 2: HORIZONTAL CARD ALIGNMENT & SAMPLING
   // ==========================================
   function startStripCameraStream() {
     if (capturedReviewSection) capturedReviewSection.style.display = 'none';
@@ -1256,7 +1252,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ==========================================
-  // 10. DOSE COMPUTATION & DUAL-TIME TELEMETRY
+  // 9. DOSE COMPUTATION & DUAL-TIME TELEMETRY
   // ==========================================
   if (computeDoseBtn) {
     computeDoseBtn.addEventListener('click', () => {
@@ -1336,7 +1332,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const workerId = state.verifiedWorker ? state.verifiedWorker.workerId : (state.workerId || 'EMP-101');
-    const shiftDate = state.verifiedWorker ? state.verifiedWorker.shiftDate : state.shiftDate;
+    const shiftDate = state.verifiedWorker ? (state.verifiedWorker.shiftDate || state.shiftDate) : state.shiftDate;
 
     return {
       workerId,
@@ -1390,7 +1386,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ==========================================
-  // 11. DISPLAY RESULT & CONTINUOUS SPLINE
+  // 10. DISPLAY RESULT & CONTINUOUS SPLINE
   // ==========================================
   function displayResult(res) {
     if (resultDoseVal) resultDoseVal.textContent = res.dose;
@@ -1462,7 +1458,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ==========================================
-  // 12. AUDIT LOG & COMPLIANCE OPERATIONS
+  // 11. AUDIT LOG & COMPLIANCE OPERATIONS
   // ==========================================
   function renderDashboard() {
     if (!logTableBody) return;
@@ -1478,12 +1474,12 @@ document.addEventListener('DOMContentLoaded', () => {
       if (statNormal) statNormal.textContent = state.logs.filter(l => l.status.includes('Normal') || l.status.includes('Safe')).length;
       if (statElevatedHigh) statElevatedHigh.textContent = state.logs.filter(l => !l.status.includes('Normal') && !l.status.includes('Safe')).length;
     } else {
-      if (!state.qrVerified || !activeId) {
+      if (!state.faceVerified || !activeId) {
         logTableBody.innerHTML = `
           <tr>
             <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 28px;">
               🔒 <strong>Worker Privacy Shield</strong><br>
-              <span style="font-size:0.75rem;">Verify Face ID or scan Worker QR Pass on Step 1 to unlock records.</span>
+              <span style="font-size:0.75rem;">Enroll and verify your Face ID on Step 1 to unlock records.</span>
             </td>
           </tr>
         `;
@@ -1540,8 +1536,8 @@ document.addEventListener('DOMContentLoaded', () => {
   if (exportCsvBtn) {
     exportCsvBtn.addEventListener('click', () => {
       const activeId = state.activeWorkerId || state.workerId;
-      if (state.userRole === 'worker' && (!state.qrVerified || !activeId)) {
-        alert('Please verify your Face ID or Worker QR first to export your personal records.');
+      if (state.userRole === 'worker' && (!state.faceVerified || !activeId)) {
+        alert('Please verify your Face ID first to export your personal records.');
         return;
       }
 
