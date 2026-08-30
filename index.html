@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>H2S Industrial Exposure Dosimeter & TWA Analytics</title>
+  <title>H2S Industrial Exposure Dosimeter & Biometric Telemetry</title>
 
   <!-- PWA & Native Offline APK Meta Configuration -->
   <link rel="manifest" href="manifest.json">
@@ -14,7 +14,7 @@
   <link rel="apple-touch-icon" href="icon-192.png">
 
   <!-- Mobile App Interface Stylesheet with Cache-Buster -->
-  <link rel="stylesheet" href="style.css?v=13.0">
+  <link rel="stylesheet" href="style.css?v=14.0">
 </head>
 <body>
 
@@ -36,7 +36,7 @@
         <!-- Interactive Role Badge Pill -->
         <div id="headerRoleTag" class="role-indicator-pill role-pill-worker" onclick="openAdminLoginModal()" title="Tap to Switch Role">
           <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-          <span id="headerRoleText">Scan QR</span>
+          <span id="headerRoleText">Verify ID</span>
         </div>
 
         <!-- Admin Portal Switch Button -->
@@ -44,38 +44,49 @@
           🛡️ Admin
         </button>
 
-        <!-- Generate Worker QR Badge Button -->
-        <button type="button" id="headerQrRegisterBtn" class="btn-header-tool" onclick="openQrModalWindow()" title="Generate Worker QR Badge">
-          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-          Pass
+        <!-- Enroll New Worker Face / Pass -->
+        <button type="button" id="headerEnrollFaceBtn" class="btn-header-tool" onclick="openFaceEnrollmentModal()" title="Enroll Worker Face">
+          👤 Enroll
         </button>
       </div>
     </header>
 
     <!-- ==========================================
-         SCREEN 1: INGESTION, WORKER PASS & ZONE LOGGER
+         SCREEN 1: INGESTION, BIOMETRIC PASS & ZONE LOGGER
          ========================================== -->
     <main id="scan-screen" class="screen-view active">
 
-      <!-- Digital Worker Safety Pass Card (Initially Unverified) -->
+      <!-- Digital Worker Safety Pass Card (with Biometric Face ID) -->
       <div class="digital-id-pass">
         <div class="id-pass-main">
           <div class="id-profile-chip">
-            <div id="workerAvatarBox" class="id-avatar-box">🪪</div>
+            <div id="workerAvatarBox" class="id-avatar-box">👤</div>
             <div class="id-profile-text">
-              <div class="id-worker-id" id="displayWorkerName">Awaiting Worker QR</div>
-              <div class="id-meta-sub" id="displayWorkerSub">Scan Worker QR Badge to unlock reading</div>
+              <div class="id-worker-id" id="displayWorkerName">Awaiting Worker Auth</div>
+              <div class="id-meta-sub" id="displayWorkerSub">Scan Face ID or QR Pass to unlock reading</div>
             </div>
           </div>
           <span id="stripLockStatusTag" class="tag-subtle" style="background: var(--color-amber-light); color: var(--color-amber); border-color: var(--color-amber-border);">
-            ⚠️ Awaiting QR
+            ⚠️ Unverified
           </span>
         </div>
 
-        <button type="button" id="startLiveQrCameraBtn" class="btn-industrial btn-cyan-glow" style="width: 100%;">
-          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-          📷 Scan Worker QR Pass
+        <!-- Primary: Biometric Face Recognition Button -->
+        <button type="button" id="startLiveFaceScanBtn" class="btn-industrial btn-cyan-glow" style="width: 100%;">
+          <svg width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="12" cy="8" r="5"></circle><path d="M20 21a8 8 0 1 0-16 0"></path></svg>
+          👤 Scan Worker Face ID (Biometric)
         </button>
+
+        <!-- Secondary: QR Code Pass & Quick Demo Selector -->
+        <div class="form-grid">
+          <button type="button" id="startLiveQrCameraBtn" class="btn-industrial btn-glass" style="font-size: 0.78rem; min-height: 42px;">
+            <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+            📷 QR Pass
+          </button>
+          <button type="button" id="quickDemoWorkerBtn" class="btn-industrial btn-glass" style="font-size: 0.78rem; min-height: 42px;">
+            ⚡ Demo (EMP-101)
+          </button>
+        </div>
       </div>
 
       <!-- Live Hazard Zone Entry / Exit Logger -->
@@ -139,7 +150,7 @@
         </div>
       </div>
 
-      <!-- Chemical Test Strip Ingestion Bay (Gated until QR is Scanned) -->
+      <!-- Chemical Test Strip Ingestion Bay (Gated until ID is Verified) -->
       <div class="industrial-card">
         <div class="card-header-flex">
           <span class="card-title-text">
@@ -152,7 +163,7 @@
           <svg width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" style="color: var(--text-muted);"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
           <div style="display: flex; flex-direction: column; gap: 2px;">
             <span style="font-size: 0.88rem; font-weight: 800; color: var(--text-secondary);" id="stripDropzoneText">
-              🔒 Scan Worker QR Pass to Unlock Camera
+              🔒 Verify Worker Face ID / Pass to Unlock Camera
             </span>
             <span style="font-size: 0.72rem; color: var(--text-muted);">
               Fixed-geometry multi-patch card alignment
@@ -374,7 +385,7 @@
       <!-- Worker Privacy Shield Banner (Default Worker Mode) -->
       <div id="workerPrivacyBanner" class="banner-role-privacy">
         <div>
-          <strong>🔒 Privacy Shield:</strong> <strong id="privacyWorkerIdText" style="color: var(--color-blue);">Awaiting QR</strong>
+          <strong>🔒 Privacy Shield:</strong> <strong id="privacyWorkerIdText" style="color: var(--color-blue);">Awaiting ID Auth</strong>
         </div>
         <button type="button" id="dashboardAdminUnlockBtn" onclick="openAdminLoginModal()" class="btn-industrial btn-cyan-glow" style="padding: 4px 10px; font-size: 0.72rem; min-height: 32px;">
           🛡️ Unlock
@@ -465,6 +476,99 @@
         <div class="nav-active-pill"></div>
       </button>
     </nav>
+  </div>
+
+  <!-- LIVE BIOMETRIC FACE SCANNER MODAL -->
+  <div id="liveFaceModal" class="modal-glass-backdrop" style="display: none;">
+    <div class="modal-industrial-box">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 style="font-size: 1.05rem; font-weight: 800; display: flex; align-items: center; gap: 6px; color: var(--color-blue);">
+          👤 Biometric Face Recognition
+        </h3>
+        <button type="button" id="closeLiveFaceBtn" style="background: none; border: none; font-size: 1.4rem; cursor: pointer; color: var(--text-muted);">&times;</button>
+      </div>
+
+      <div class="face-biometric-viewport">
+        <video id="faceVideoFeed" playsinline autoplay></video>
+        <div class="face-scan-overlay">
+          <div class="face-reticle-oval">
+            <div class="face-scan-laser"></div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div style="display: flex; justify-content: space-between; font-size: 0.74rem; font-weight: 700; color: var(--text-secondary);">
+          <span id="faceScanStatusMsg">Align face inside the oval reticle...</span>
+          <span id="faceConfidenceVal" style="font-family: var(--font-mono); color: var(--color-blue);">0%</span>
+        </div>
+        <div class="face-confidence-bar-wrap">
+          <div id="faceConfidenceFill" class="face-confidence-bar-fill"></div>
+        </div>
+      </div>
+
+      <!-- Quick Select Registered Worker for instant match testing -->
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <span style="font-size: 0.68rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Simulate Registered Worker:</span>
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
+          <button type="button" class="btn-industrial btn-glass demo-face-select-btn" data-worker="EMP-101" data-name="Rajesh Kumar" style="padding: 6px 4px; font-size: 0.72rem; min-height: 36px;">
+            EMP-101
+          </button>
+          <button type="button" class="btn-industrial btn-glass demo-face-select-btn" data-worker="EMP-102" data-name="Vikram Singh" style="padding: 6px 4px; font-size: 0.72rem; min-height: 36px;">
+            EMP-102
+          </button>
+          <button type="button" class="btn-industrial btn-glass demo-face-select-btn" data-worker="EMP-205" data-name="Amit Patel" style="padding: 6px 4px; font-size: 0.72rem; min-height: 36px;">
+            EMP-205
+          </button>
+        </div>
+      </div>
+
+      <button type="button" id="faceCaptureManualBtn" class="btn-industrial btn-cyan-glow" style="width: 100%; min-height: 42px; font-size: 0.85rem;">
+        ⚡ Instant Authenticate Face
+      </button>
+    </div>
+  </div>
+
+  <!-- WORKER FACE ENROLLMENT MODAL -->
+  <div id="enrollFaceModal" class="modal-glass-backdrop" style="display: none;">
+    <div class="modal-industrial-box">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 style="font-size: 1.05rem; font-weight: 800; display: flex; align-items: center; gap: 6px;">
+          📸 Enroll Worker Face ID
+        </h3>
+        <button type="button" id="closeEnrollModalBtn" style="background: none; border: none; font-size: 1.4rem; cursor: pointer; color: var(--text-muted);">&times;</button>
+      </div>
+
+      <div class="form-grid">
+        <div class="form-field">
+          <label for="enrollWorkerIdInput">Worker ID:</label>
+          <input type="text" id="enrollWorkerIdInput" value="EMP-103" placeholder="e.g. EMP-103">
+        </div>
+        <div class="form-field">
+          <label for="enrollWorkerNameInput">Full Name:</label>
+          <input type="text" id="enrollWorkerNameInput" value="Suresh Rao" placeholder="Worker Name">
+        </div>
+      </div>
+
+      <div class="form-field">
+        <label for="enrollShiftHoursInput">Default Shift Hours:</label>
+        <input type="number" id="enrollShiftHoursInput" value="8.0" min="0.1" max="24.0" step="0.5">
+      </div>
+
+      <div class="face-biometric-viewport" style="height: 180px;">
+        <video id="enrollVideoFeed" playsinline autoplay></video>
+        <canvas id="enrollCaptureCanvas" style="display: none;"></canvas>
+      </div>
+
+      <div class="form-grid">
+        <button type="button" id="takeEnrollSnapshotBtn" class="btn-industrial btn-glass" style="font-size: 0.82rem;">
+          📷 Snapshot
+        </button>
+        <button type="button" id="saveEnrollFaceBtn" class="btn-industrial btn-cyan-glow" style="font-size: 0.82rem;">
+          💾 Save & Enroll
+        </button>
+      </div>
+    </div>
   </div>
 
   <!-- ADMIN AUTHENTICATION SECURITY MODAL -->
@@ -568,8 +672,8 @@
 
   <script src="qrcode.min.js"></script>
   <script src="jsqr.js"></script>
-  <script src="calibration.js?v=13.0"></script>
-  <script src="script.js?v=13.0"></script>
+  <script src="calibration.js?v=14.0"></script>
+  <script src="script.js?v=14.0"></script>
 
   <!-- Service Worker Registration for 100% Offline Capability -->
   <script>
