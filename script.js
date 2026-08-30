@@ -1,6 +1,6 @@
 /**
  * H2S Dose Reader Pro — Industrial Safety & Telemetry Engine
- * Continuous Spline Calibration, Dynamic Shift TWA Integration & Mandatory QR Gatekeeper
+ * Manual Alignment-Overlay Capture System & Fixed-Geometry Optical Calibration
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -10,17 +10,20 @@ document.addEventListener('DOMContentLoaded', () => {
   const state = {
     currentScreen: 'scan-screen',
     userRole: 'worker', // 'worker' | 'admin'
-    activeWorkerId: null, // Initially null - requires QR Scan!
+    activeWorkerId: null, // Initially null - requires QR Scan
     workerId: null,
     shiftDate: new Date().toISOString().split('T')[0],
     shiftHours: 8.0,
-    qrVerified: false, // MANDATORY: Not verified on startup!
+    qrVerified: false,
     verifiedWorker: null,
-    loadedImage: null,
-    tapState: 0,
-    tapPoints: [null, null, null],
-    expiryValid: true,
     latestResult: null,
+    activeStripStream: null,
+    alignmentAnimationFrame: null,
+    sampledColors: {
+      whiteRef: null,
+      greyRef: null,
+      strip: null
+    },
     dbWorkers: JSON.parse(localStorage.getItem('h2s_worker_db') || '[]'),
     logs: JSON.parse(localStorage.getItem('h2s_dosimeter_logs') || '[]')
   };
@@ -36,6 +39,65 @@ document.addEventListener('DOMContentLoaded', () => {
     localStorage.setItem('h2s_dosimeter_logs', JSON.stringify(state.logs));
   }
 
+  // ==========================================
+  // CARD GEOMETRY SPECIFICATIONS (20mm x 40mm)
+  // Exact physical card zones (1:2 aspect ratio)
+  // ==========================================
+  const ZONES = {
+    whiteRef: { xPct: [0.030, 0.550], yPct: [0.025, 0.225], name: "WHITE", color: "#06B6D4" },
+    greyRef:  { xPct: [0.600, 0.850], yPct: [0.025, 0.225], name: "GREY",  color: "#A855F7" },
+    strip:    { xPct: [0.000, 1.000], yPct: [0.250, 0.500], name: "STRIP", color: "#F59E0B" }
+  };
+
+  function getOuterCardRect(frameWidth, frameHeight) {
+    // Card height = 60% of video frame height
+    const cardHeight = Math.round(frameHeight * 0.60);
+    const cardWidth = Math.round(cardHeight * 0.50); // 1:2 aspect ratio (20mm x 40mm)
+    const cardX = Math.round((frameWidth - cardWidth) / 2);
+    const cardY = Math.round((frameHeight - cardHeight) / 2);
+
+    return { x: cardX, y: cardY, width: cardWidth, height: cardHeight };
+  }
+
+  function getZonePixels(zone, outerRect) {
+    return {
+      x: outerRect.x + zone.xPct[0] * outerRect.width,
+      y: outerRect.y + zone.yPct[0] * outerRect.height,
+      w: (zone.xPct[1] - zone.xPct[0]) * outerRect.width,
+      h: (zone.yPct[1] - zone.yPct[0]) * outerRect.height
+    };
+  }
+
+  function getAverageRGBFromZone(canvasCtx, zoneRect) {
+    const startX = Math.max(0, Math.round(zoneRect.x));
+    const startY = Math.max(0, Math.round(zoneRect.y));
+    const width = Math.min(canvasCtx.canvas.width - startX, Math.round(zoneRect.w));
+    const height = Math.min(canvasCtx.canvas.height - startY, Math.round(zoneRect.h));
+
+    if (width <= 0 || height <= 0) return { r: 0, g: 0, b: 0 };
+
+    const imgData = canvasCtx.getImageData(startX, startY, width, height);
+    const data = imgData.data;
+    let rSum = 0, gSum = 0, bSum = 0, count = 0;
+
+    const step = (width * height > 4000) ? 2 : 1;
+    for (let y = 0; y < height; y += step) {
+      for (let x = 0; x < width; x += step) {
+        const idx = (y * width + x) * 4;
+        rSum += data[idx];
+        gSum += data[idx + 1];
+        bSum += data[idx + 2];
+        count++;
+      }
+    }
+
+    return {
+      r: count > 0 ? Math.round(rSum / count) : 0,
+      g: count > 0 ? Math.round(gSum / count) : 0,
+      b: count > 0 ? Math.round(bSum / count) : 0
+    };
+  }
+
   // Header Elements
   const headerRoleTag = document.getElementById('headerRoleTag');
   const headerRoleText = document.getElementById('headerRoleText');
@@ -43,7 +105,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const adminLoginModal = document.getElementById('adminLoginModal');
   const closeAdminModalBtn = document.getElementById('closeAdminModalBtn');
   const adminPinInput = document.getElementById('adminPinInput');
-  const autoFillPinBtn = document.getElementById('autoFillPinBtn');
   const submitAdminPinBtn = document.getElementById('submitAdminPinBtn');
   const adminPinErrorMsg = document.getElementById('adminPinErrorMsg');
 
@@ -60,15 +121,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const fileInput = document.getElementById('fileInput');
   const demoSampleBtn = document.getElementById('demoSampleBtn');
-  const photoCanvas = document.getElementById('photoCanvas');
-  const ctx = photoCanvas.getContext('2d', { willReadFrequently: true });
 
-  const resetPinsBtn = document.getElementById('resetPinsBtn');
+  // Screen 2 Alignment Camera & Review Elements
+  const liveAlignmentSection = document.getElementById('liveAlignmentSection');
+  const capturedReviewSection = document.getElementById('capturedReviewSection');
+  const stripVideoFeed = document.getElementById('stripVideoFeed');
+  const alignmentOverlayCanvas = document.getElementById('alignmentOverlayCanvas');
+  const overlayCtx = alignmentOverlayCanvas ? alignmentOverlayCanvas.getContext('2d') : null;
+
+  const captureStripBtn = document.getElementById('captureStripBtn');
+  const liveDemoSampleBtn = document.getElementById('liveDemoSampleBtn');
+  const retakePhotoBtn = document.getElementById('retakePhotoBtn');
   const computeDoseBtn = document.getElementById('computeDoseBtn');
-  const autoDetectBtn = document.getElementById('autoDetectBtn');
-  const stepInstruction = document.getElementById('stepInstruction');
+  const photoCanvas = document.getElementById('photoCanvas');
+  const photoCtx = photoCanvas ? photoCanvas.getContext('2d', { willReadFrequently: true }) : null;
 
-  // Screen 2 Readout Cards
   const readoutWhite = document.getElementById('readoutWhite');
   const readoutGrey = document.getElementById('readoutGrey');
   const readoutStrip = document.getElementById('readoutStrip');
@@ -184,7 +251,6 @@ document.addEventListener('DOMContentLoaded', () => {
     renderDashboard();
   }
 
-  // Global Window Helper Functions
   window.openAdminLoginModal = function() {
     if (adminPinInput) adminPinInput.value = '';
     if (adminPinErrorMsg) adminPinErrorMsg.style.display = 'none';
@@ -194,13 +260,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   window.closeAdminModal = function() {
     if (adminLoginModal) adminLoginModal.style.display = 'none';
-  };
-
-  window.autoFillDemoPin = function() {
-    if (adminPinInput) {
-      adminPinInput.value = 'admin123';
-      window.handleAdminPinSubmit();
-    }
   };
 
   window.exitAdminMode = function() {
@@ -347,6 +406,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const targetTab = document.querySelector(`.nav-step-btn[data-screen="${screenId}"]`);
     if (targetTab) targetTab.classList.add('active');
 
+    if (screenId === 'calibrate-screen') {
+      startStripCameraStream();
+    } else {
+      stopStripCameraStream();
+    }
+
     if (screenId === 'dashboard-screen') {
       renderDashboard();
     }
@@ -360,10 +425,6 @@ document.addEventListener('DOMContentLoaded', () => {
         startLiveCameraScan();
         return;
       }
-      if ((targetScreen === 'calibrate-screen' || targetScreen === 'result-screen') && (!state.loadedImage)) {
-        demoSampleBtn.click();
-        return;
-      }
       switchScreen(targetScreen);
     });
   });
@@ -371,7 +432,7 @@ document.addEventListener('DOMContentLoaded', () => {
   window.switchScreen = switchScreen;
 
   // ==========================================
-  // 5. LIVE QR CAMERA SCANNER
+  // 5. LIVE QR CAMERA SCANNER (WORKER BADGE)
   // ==========================================
   if (startLiveQrCameraBtn) {
     startLiveQrCameraBtn.addEventListener('click', startLiveCameraScan);
@@ -511,10 +572,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (stripScanControls) {
       stripScanControls.classList.remove('locked');
-      if (stripDropzoneText) stripDropzoneText.textContent = '📸 Tap to capture or upload wristband strip photo';
+      if (stripDropzoneText) stripDropzoneText.textContent = '📸 Tap to open alignment camera for card photo';
     }
 
-    alert(`✅ QR VERIFIED!\nLoaded profile for ${scannedWorkerId}.\nShift: ${scannedShiftHours} hrs.\n\nStep 2 (Chemical Strip Ingestion) is now UNLOCKED.`);
+    alert(`✅ QR VERIFIED!\nLoaded profile for ${scannedWorkerId}.\nShift: ${scannedShiftHours} hrs.\n\nStep 2 (Alignment Camera) is now UNLOCKED.`);
   }
 
   // ==========================================
@@ -619,16 +680,16 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ==========================================
-  // 7. STRIP SCAN & DROPZONE
+  // 7. STRIP INGESTION TRIGGERS (SCREEN 1)
   // ==========================================
   if (stripScanControls) {
     stripScanControls.addEventListener('click', () => {
       if (!state.qrVerified) {
-        alert('⚠️ Mandatory Step: Please scan your Worker QR Code first to unlock strip ingestion!');
+        alert('⚠️ Mandatory Step: Please scan your Worker QR Code first to unlock strip camera!');
         startLiveCameraScan();
         return;
       }
-      if (fileInput) fileInput.click();
+      switchScreen('calibrate-screen');
     });
   }
 
@@ -646,9 +707,8 @@ document.addEventListener('DOMContentLoaded', () => {
       reader.onload = (event) => {
         const img = new Image();
         img.onload = () => {
-          loadImageToCanvas(img);
+          processStaticImageWithAlignment(img);
           switchScreen('calibrate-screen');
-          autoDetectPatches();
         };
         img.src = event.target.result;
       };
@@ -661,13 +721,248 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!state.qrVerified) {
         handleSuccessfulQrScan(JSON.stringify({ workerId: 'EMP-101', shiftDate: state.shiftDate, shiftHours: state.shiftHours }));
       }
-      generateDemoSamplePhoto();
+      generateAndProcessDemoCard();
       switchScreen('calibrate-screen');
     });
   }
 
-  function loadImageToCanvas(img) {
-    state.loadedImage = img;
+  if (liveDemoSampleBtn) {
+    liveDemoSampleBtn.addEventListener('click', () => {
+      generateAndProcessDemoCard();
+    });
+  }
+
+  // ==========================================
+  // 8. SCREEN 2: ALIGNMENT-OVERLAY CAMERA & SAMPLING
+  // ==========================================
+  function startStripCameraStream() {
+    if (capturedReviewSection) capturedReviewSection.style.display = 'none';
+    if (liveAlignmentSection) liveAlignmentSection.style.display = 'flex';
+
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+      })
+      .then((stream) => {
+        state.activeStripStream = stream;
+        stripVideoFeed.srcObject = stream;
+        stripVideoFeed.setAttribute('playsinline', true);
+        stripVideoFeed.play();
+        requestAnimationFrame(renderAlignmentOverlayFrame);
+      })
+      .catch((err) => {
+        console.warn('Camera failed or permission denied:', err);
+      });
+    }
+  }
+
+  function stopStripCameraStream() {
+    if (state.activeStripStream) {
+      state.activeStripStream.getTracks().forEach(track => track.stop());
+      state.activeStripStream = null;
+    }
+    if (state.alignmentAnimationFrame) {
+      cancelAnimationFrame(state.alignmentAnimationFrame);
+      state.alignmentAnimationFrame = null;
+    }
+  }
+
+  function renderAlignmentOverlayFrame() {
+    if (!state.activeStripStream || state.currentScreen !== 'calibrate-screen') return;
+
+    if (stripVideoFeed && stripVideoFeed.videoWidth > 0 && alignmentOverlayCanvas && overlayCtx) {
+      const vw = stripVideoFeed.videoWidth;
+      const vh = stripVideoFeed.videoHeight;
+
+      if (alignmentOverlayCanvas.width !== vw || alignmentOverlayCanvas.height !== vh) {
+        alignmentOverlayCanvas.width = vw;
+        alignmentOverlayCanvas.height = vh;
+      }
+
+      drawAlignmentOverlay(overlayCtx, vw, vh);
+    }
+
+    state.alignmentAnimationFrame = requestAnimationFrame(renderAlignmentOverlayFrame);
+  }
+
+  function drawAlignmentOverlay(cCtx, width, height) {
+    cCtx.clearRect(0, 0, width, height);
+
+    const outerRect = getOuterCardRect(width, height);
+
+    // Dimmed background mask
+    cCtx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+    cCtx.fillRect(0, 0, width, height);
+    cCtx.clearRect(outerRect.x, outerRect.y, outerRect.width, outerRect.height);
+
+    // Outer Card Border (1:2 aspect ratio boundary)
+    cCtx.strokeStyle = '#FFFFFF';
+    cCtx.lineWidth = 3;
+    cCtx.strokeRect(outerRect.x, outerRect.y, outerRect.width, outerRect.height);
+
+    // Corner brackets
+    const bracketLen = Math.round(outerRect.width * 0.15);
+    cCtx.strokeStyle = '#38BDF8';
+    cCtx.lineWidth = 4;
+    cCtx.beginPath();
+    // Top-Left
+    cCtx.moveTo(outerRect.x, outerRect.y + bracketLen);
+    cCtx.lineTo(outerRect.x, outerRect.y);
+    cCtx.lineTo(outerRect.x + bracketLen, outerRect.y);
+    // Top-Right
+    cCtx.moveTo(outerRect.x + outerRect.width - bracketLen, outerRect.y);
+    cCtx.lineTo(outerRect.x + outerRect.width, outerRect.y);
+    cCtx.lineTo(outerRect.x + outerRect.width, outerRect.y + bracketLen);
+    // Bottom-Left
+    cCtx.moveTo(outerRect.x, outerRect.y + outerRect.height - bracketLen);
+    cCtx.lineTo(outerRect.x, outerRect.y + outerRect.height);
+    cCtx.lineTo(outerRect.x + bracketLen, outerRect.y + outerRect.height);
+    // Bottom-Right
+    cCtx.moveTo(outerRect.x + outerRect.width - bracketLen, outerRect.y + outerRect.height);
+    cCtx.lineTo(outerRect.x + outerRect.width, outerRect.y + outerRect.height);
+    cCtx.lineTo(outerRect.x + outerRect.width, outerRect.y + outerRect.height - bracketLen);
+    cCtx.stroke();
+
+    // Draw Sub-zones (WHITE, GREY, STRIP)
+    Object.keys(ZONES).forEach(key => {
+      const zone = ZONES[key];
+      const zPx = getZonePixels(zone, outerRect);
+
+      // Inset filled rectangle
+      cCtx.fillStyle = hexToRgba(zone.color, 0.18);
+      cCtx.fillRect(zPx.x, zPx.y, zPx.w, zPx.h);
+
+      cCtx.strokeStyle = zone.color;
+      cCtx.lineWidth = 2;
+      cCtx.setLineDash([4, 3]);
+      cCtx.strokeRect(zPx.x, zPx.y, zPx.w, zPx.h);
+      cCtx.setLineDash([]);
+
+      // Label badge
+      cCtx.fillStyle = zone.color;
+      cCtx.font = `bold ${Math.max(11, Math.round(outerRect.width * 0.055))}px sans-serif`;
+      cCtx.textAlign = 'left';
+      cCtx.textBaseline = 'bottom';
+      cCtx.fillText(zone.name, zPx.x + 3, zPx.y - 2);
+    });
+  }
+
+  function hexToRgba(hex, alpha) {
+    let c = hex.substring(1);
+    if (c.length === 3) c = c.split('').map(x => x + x).join('');
+    const num = parseInt(c, 16);
+    return `rgba(${(num >> 16) & 255}, ${(num >> 8) & 255}, ${num & 255}, ${alpha})`;
+  }
+
+  // Capture Button: Takes photo from video stream and samples zones by fixed geometry
+  if (captureStripBtn) {
+    captureStripBtn.addEventListener('click', () => {
+      if (!stripVideoFeed || stripVideoFeed.videoWidth === 0) {
+        alert('Camera stream not ready. Please ensure camera access is allowed.');
+        return;
+      }
+
+      const vw = stripVideoFeed.videoWidth;
+      const vh = stripVideoFeed.videoHeight;
+
+      photoCanvas.width = vw;
+      photoCanvas.height = vh;
+
+      // Draw current video frame to canvas at native resolution
+      photoCtx.drawImage(stripVideoFeed, 0, 0, vw, vh);
+
+      const outerRect = getOuterCardRect(vw, vh);
+
+      // Sample average RGB from the exact fixed zones
+      sampleZonesAndDisplay(photoCtx, outerRect);
+
+      // Stop camera stream now that photo is captured
+      stopStripCameraStream();
+
+      // Switch to Review & Verification View
+      if (liveAlignmentSection) liveAlignmentSection.style.display = 'none';
+      if (capturedReviewSection) capturedReviewSection.style.display = 'flex';
+    });
+  }
+
+  function sampleZonesAndDisplay(canvasCtx, outerRect) {
+    const whitePx = getZonePixels(ZONES.whiteRef, outerRect);
+    const greyPx = getZonePixels(ZONES.greyRef, outerRect);
+    const stripPx = getZonePixels(ZONES.strip, outerRect);
+
+    const whiteRgb = getAverageRGBFromZone(canvasCtx, whitePx);
+    const greyRgb = getAverageRGBFromZone(canvasCtx, greyPx);
+    const stripRgb = getAverageRGBFromZone(canvasCtx, stripPx);
+
+    state.sampledColors = {
+      whiteRef: whiteRgb,
+      greyRef: greyRgb,
+      strip: stripRgb
+    };
+
+    // Draw confirmation overlay onto the captured still photo canvas
+    drawCaptureConfirmationOverlay(canvasCtx, outerRect);
+
+    // Update readout cards
+    updateReadoutCards(whiteRgb, greyRgb, stripRgb);
+  }
+
+  function drawCaptureConfirmationOverlay(canvasCtx, outerRect) {
+    // Draw outer card boundary
+    canvasCtx.strokeStyle = '#38BDF8';
+    canvasCtx.lineWidth = 3;
+    canvasCtx.strokeRect(outerRect.x, outerRect.y, outerRect.width, outerRect.height);
+
+    // Highlight sampled zones
+    Object.keys(ZONES).forEach(key => {
+      const zone = ZONES[key];
+      const zPx = getZonePixels(zone, outerRect);
+
+      canvasCtx.fillStyle = hexToRgba(zone.color, 0.22);
+      canvasCtx.fillRect(zPx.x, zPx.y, zPx.w, zPx.h);
+
+      canvasCtx.strokeStyle = zone.color;
+      canvasCtx.lineWidth = 2.5;
+      canvasCtx.strokeRect(zPx.x, zPx.y, zPx.w, zPx.h);
+
+      // Draw label
+      canvasCtx.fillStyle = '#FFFFFF';
+      canvasCtx.font = `bold ${Math.max(12, Math.round(outerRect.width * 0.06))}px sans-serif`;
+      canvasCtx.textAlign = 'left';
+      canvasCtx.textBaseline = 'top';
+      canvasCtx.shadowColor = 'rgba(0,0,0,0.8)';
+      canvasCtx.shadowBlur = 4;
+      canvasCtx.fillText(`✓ ${zone.name}`, zPx.x + 4, zPx.y + 4);
+      canvasCtx.shadowBlur = 0;
+    });
+  }
+
+  function updateReadoutCards(wRgb, gRgb, sRgb) {
+    if (readoutWhite) {
+      readoutWhite.querySelector('.rgb-display-text').textContent = `RGB(${wRgb.r}, ${wRgb.g}, ${wRgb.b})`;
+      readoutWhite.querySelector('.swatch-mini-bar').style.backgroundColor = `rgb(${wRgb.r}, ${wRgb.g}, ${wRgb.b})`;
+    }
+    if (readoutGrey) {
+      readoutGrey.querySelector('.rgb-display-text').textContent = `RGB(${gRgb.r}, ${gRgb.g}, ${gRgb.b})`;
+      readoutGrey.querySelector('.swatch-mini-bar').style.backgroundColor = `rgb(${gRgb.r}, ${gRgb.g}, ${gRgb.b})`;
+    }
+    if (readoutStrip) {
+      readoutStrip.querySelector('.rgb-display-text').textContent = `RGB(${sRgb.r}, ${sRgb.g}, ${sRgb.b})`;
+      readoutStrip.querySelector('.swatch-mini-bar').style.backgroundColor = `rgb(${sRgb.r}, ${sRgb.g}, ${sRgb.b})`;
+    }
+  }
+
+  // Retake Photo Button: Returns to live alignment camera
+  if (retakePhotoBtn) {
+    retakePhotoBtn.addEventListener('click', () => {
+      startStripCameraStream();
+    });
+  }
+
+  // Process Static Image (from file upload)
+  function processStaticImageWithAlignment(img) {
+    stopStripCameraStream();
+
     const maxDim = 1000;
     let w = img.width;
     let h = img.height;
@@ -680,247 +975,57 @@ document.addEventListener('DOMContentLoaded', () => {
         h = maxDim;
       }
     }
+
     photoCanvas.width = w;
     photoCanvas.height = h;
+    photoCtx.drawImage(img, 0, 0, w, h);
 
-    resetPinState();
+    const outerRect = getOuterCardRect(w, h);
+    sampleZonesAndDisplay(photoCtx, outerRect);
+
+    if (liveAlignmentSection) liveAlignmentSection.style.display = 'none';
+    if (capturedReviewSection) capturedReviewSection.style.display = 'flex';
   }
 
-  function generateDemoSamplePhoto() {
-    const canvasTemp = document.createElement('canvas');
-    canvasTemp.width = 800;
-    canvasTemp.height = 600;
-    const tCtx = canvasTemp.getContext('2d');
+  // Demo Card Generator with Exact 1:2 Geometry
+  function generateAndProcessDemoCard() {
+    stopStripCameraStream();
 
-    tCtx.fillStyle = '#0F172A';
-    tCtx.fillRect(0, 0, 800, 600);
+    const cw = 800;
+    const ch = 600;
+    photoCanvas.width = cw;
+    photoCanvas.height = ch;
 
-    tCtx.fillStyle = '#1E293B';
-    tCtx.strokeStyle = '#334155';
-    tCtx.lineWidth = 4;
-    tCtx.fillRect(50, 50, 700, 500);
-    tCtx.strokeRect(50, 50, 700, 500);
+    // Background surface
+    photoCtx.fillStyle = '#0F172A';
+    photoCtx.fillRect(0, 0, cw, ch);
 
-    tCtx.fillStyle = 'rgb(245, 240, 220)';
-    tCtx.fillRect(100, 180, 160, 240);
-    tCtx.strokeStyle = '#64748B';
-    tCtx.strokeRect(100, 180, 160, 240);
+    const outerRect = getOuterCardRect(cw, ch);
 
-    tCtx.fillStyle = 'rgb(135, 130, 115)';
-    tCtx.fillRect(320, 180, 160, 240);
-    tCtx.strokeRect(320, 180, 160, 240);
+    // Card Body (20mm x 40mm proportional)
+    photoCtx.fillStyle = '#CBD5E1';
+    photoCtx.fillRect(outerRect.x, outerRect.y, outerRect.width, outerRect.height);
 
-    tCtx.fillStyle = 'rgb(115, 90, 70)';
-    tCtx.fillRect(540, 180, 160, 240);
-    tCtx.strokeRect(540, 180, 160, 240);
+    // Zone 1: White Ref
+    const whitePx = getZonePixels(ZONES.whiteRef, outerRect);
+    photoCtx.fillStyle = 'rgb(245, 240, 220)';
+    photoCtx.fillRect(whitePx.x, whitePx.y, whitePx.w, whitePx.h);
 
-    tCtx.fillStyle = '#FFFFFF';
-    tCtx.font = 'bold 20px sans-serif';
-    tCtx.textAlign = 'center';
-    tCtx.fillText('WHITE REF', 180, 150);
-    tCtx.fillText('GREY REF', 400, 150);
-    tCtx.fillText('H2S STRIP', 620, 150);
+    // Zone 2: Grey Neutral Ref
+    const greyPx = getZonePixels(ZONES.greyRef, outerRect);
+    photoCtx.fillStyle = 'rgb(135, 130, 115)';
+    photoCtx.fillRect(greyPx.x, greyPx.y, greyPx.w, greyPx.h);
 
-    const img = new Image();
-    img.onload = () => {
-      loadImageToCanvas(img);
-      autoDetectPatches();
-    };
-    img.src = canvasTemp.toDataURL();
-  }
+    // Zone 3: Chemical Reactive H2S Strip
+    const stripPx = getZonePixels(ZONES.strip, outerRect);
+    photoCtx.fillStyle = 'rgb(115, 90, 70)';
+    photoCtx.fillRect(stripPx.x, stripPx.y, stripPx.w, stripPx.h);
 
-  // ==========================================
-  // 8. AUTO-DETECTION & PIN CALIBRATION
-  // ==========================================
-  if (autoDetectBtn) {
-    autoDetectBtn.addEventListener('click', autoDetectPatches);
-  }
+    // Sample zones by fixed geometry
+    sampleZonesAndDisplay(photoCtx, outerRect);
 
-  function autoDetectPatches() {
-    if (!state.loadedImage) return;
-
-    const w = photoCanvas.width;
-    const h = photoCanvas.height;
-    const sampleGridX = 10;
-    const sampleGridY = 10;
-    const stepX = Math.floor(w / sampleGridX);
-    const stepY = Math.floor(h / sampleGridY);
-
-    let brightestPt = null, maxLum = -1;
-    let greyPt = null, minGreyDiff = 999;
-    let stripPt = null, maxDarknessRatio = -1;
-
-    for (let gx = 1; gx < sampleGridX - 1; gx++) {
-      for (let gy = 1; gy < sampleGridY - 1; gy++) {
-        const cx = gx * stepX;
-        const cy = gy * stepY;
-        const rgb = getAverageRGB(cx, cy, 5);
-
-        const lum = 0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b;
-        const chromaticVar = Math.abs(rgb.r - rgb.g) + Math.abs(rgb.g - rgb.b) + Math.abs(rgb.b - rgb.r);
-
-        if (lum > maxLum && rgb.r > 160 && rgb.g > 160) {
-          maxLum = lum;
-          brightestPt = { x: cx, y: cy, rawRgb: rgb };
-        }
-
-        if (lum >= 90 && lum <= 170 && chromaticVar < minGreyDiff) {
-          minGreyDiff = chromaticVar;
-          greyPt = { x: cx, y: cy, rawRgb: rgb };
-        }
-
-        const darkness = 255 - lum;
-        if (darkness > 70 && darkness < 220 && (rgb.r >= rgb.b)) {
-          const ratio = darkness + (rgb.r - rgb.b);
-          if (ratio > maxDarknessRatio) {
-            maxDarknessRatio = ratio;
-            stripPt = { x: cx, y: cy, rawRgb: rgb };
-          }
-        }
-      }
-    }
-
-    if (!brightestPt) brightestPt = { x: Math.round(w * 0.22), y: Math.round(h * 0.5), rawRgb: getAverageRGB(Math.round(w * 0.22), Math.round(h * 0.5), 5) };
-    if (!greyPt) greyPt = { x: Math.round(w * 0.50), y: Math.round(h * 0.5), rawRgb: getAverageRGB(Math.round(w * 0.50), Math.round(h * 0.5), 5) };
-    if (!stripPt) stripPt = { x: Math.round(w * 0.78), y: Math.round(h * 0.5), rawRgb: getAverageRGB(Math.round(w * 0.78), Math.round(h * 0.5), 5) };
-
-    state.tapPoints = [brightestPt, greyPt, stripPt];
-    state.tapState = 3;
-    if (computeDoseBtn) computeDoseBtn.disabled = false;
-
-    updateStepUI();
-    updateReadoutCards();
-    redrawCanvas();
-  }
-
-  function resetPinState() {
-    state.tapState = 0;
-    state.tapPoints = [null, null, null];
-    if (computeDoseBtn) computeDoseBtn.disabled = true;
-    updateStepUI();
-    updateReadoutCards();
-    redrawCanvas();
-  }
-
-  if (resetPinsBtn) resetPinsBtn.addEventListener('click', resetPinState);
-
-  if (photoCanvas) {
-    photoCanvas.addEventListener('pointerdown', (e) => {
-      if (!state.loadedImage || state.tapState >= 3) return;
-
-      const rect = photoCanvas.getBoundingClientRect();
-      const scaleX = photoCanvas.width / rect.width;
-      const scaleY = photoCanvas.height / rect.height;
-
-      const canvasX = Math.round((e.clientX - rect.left) * scaleX);
-      const canvasY = Math.round((e.clientY - rect.top) * scaleY);
-
-      const rawRgb = getAverageRGB(canvasX, canvasY, 5);
-
-      state.tapPoints[state.tapState] = { x: canvasX, y: canvasY, rawRgb };
-      state.tapState++;
-
-      if (state.tapState === 3 && computeDoseBtn) computeDoseBtn.disabled = false;
-
-      updateStepUI();
-      updateReadoutCards();
-      redrawCanvas();
-    });
-  }
-
-  function getAverageRGB(x, y, radius = 5) {
-    const startX = Math.max(0, x - radius);
-    const startY = Math.max(0, y - radius);
-    const width = Math.min(photoCanvas.width - startX, radius * 2);
-    const height = Math.min(photoCanvas.height - startY, radius * 2);
-
-    const imageData = ctx.getImageData(startX, startY, width, height);
-    const data = imageData.data;
-    let rSum = 0, gSum = 0, bSum = 0, count = 0;
-
-    for (let i = 0; i < data.length; i += 4) {
-      rSum += data[i];
-      gSum += data[i + 1];
-      bSum += data[i + 2];
-      count++;
-    }
-
-    return {
-      r: count > 0 ? Math.round(rSum / count) : 0,
-      g: count > 0 ? Math.round(gSum / count) : 0,
-      b: count > 0 ? Math.round(bSum / count) : 0
-    };
-  }
-
-  function updateStepUI() {
-    const steps = [
-      'Tap 1: Select WHITE Reference Patch',
-      'Tap 2: Select GREY Neutral Patch',
-      'Tap 3: Select H2S Reactive Strip',
-      '✓ All 3 Coordinates Identified — Ready to Compute'
-    ];
-    if (stepInstruction) stepInstruction.textContent = steps[Math.min(state.tapState, 3)];
-  }
-
-  function updateReadoutCards() {
-    const readouts = [
-      { card: readoutWhite, pt: state.tapPoints[0] },
-      { card: readoutGrey, pt: state.tapPoints[1] },
-      { card: readoutStrip, pt: state.tapPoints[2] }
-    ];
-
-    readouts.forEach((r, idx) => {
-      if (!r.card) return;
-      const textEl = r.card.querySelector('.rgb-display-text');
-      const barEl = r.card.querySelector('.swatch-mini-bar');
-
-      r.card.classList.toggle('active-target', idx === state.tapState);
-
-      if (r.pt) {
-        const { r: cr, g: cg, b: cb } = r.pt.rawRgb;
-        if (textEl) textEl.textContent = `RGB(${cr}, ${cg}, ${cb})`;
-        if (barEl) barEl.style.backgroundColor = `rgb(${cr}, ${cg}, ${cb})`;
-      } else {
-        if (textEl) textEl.textContent = '--';
-        if (barEl) barEl.style.backgroundColor = '#E2E8F0';
-      }
-    });
-  }
-
-  function redrawCanvas() {
-    if (!state.loadedImage) return;
-
-    ctx.drawImage(state.loadedImage, 0, 0, photoCanvas.width, photoCanvas.height);
-
-    const pinColors = ['#2563EB', '#8B5CF6', '#D97706'];
-
-    state.tapPoints.forEach((pt, idx) => {
-      if (!pt) return;
-
-      const { x, y } = pt;
-      const color = pinColors[idx];
-
-      ctx.beginPath();
-      ctx.arc(x, y, 20, 0, Math.PI * 2);
-      ctx.fillStyle = color;
-      ctx.globalAlpha = 0.25;
-      ctx.fill();
-      ctx.globalAlpha = 1.0;
-
-      ctx.beginPath();
-      ctx.arc(x, y, 12, 0, Math.PI * 2);
-      ctx.fillStyle = color;
-      ctx.fill();
-      ctx.lineWidth = 2.5;
-      ctx.strokeStyle = '#FFFFFF';
-      ctx.stroke();
-
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = 'bold 11px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText((idx + 1).toString(), x, y);
-    });
+    if (liveAlignmentSection) liveAlignmentSection.style.display = 'none';
+    if (capturedReviewSection) capturedReviewSection.style.display = 'flex';
   }
 
   // ==========================================
@@ -928,15 +1033,18 @@ document.addEventListener('DOMContentLoaded', () => {
   // ==========================================
   if (computeDoseBtn) {
     computeDoseBtn.addEventListener('click', () => {
-      if (state.tapState < 3) return;
+      if (!state.sampledColors.whiteRef || !state.sampledColors.greyRef || !state.sampledColors.strip) {
+        alert('Please capture an aligned card photo first.');
+        return;
+      }
 
       const currentHours = parseFloat(shiftHoursInput ? shiftHoursInput.value : 8.0) || state.shiftHours || 8.0;
       state.shiftHours = currentHours;
 
       const result = computeDoseAlgorithm(
-        state.tapPoints[0].rawRgb,
-        state.tapPoints[1].rawRgb,
-        state.tapPoints[2].rawRgb
+        state.sampledColors.whiteRef,
+        state.sampledColors.greyRef,
+        state.sampledColors.strip
       );
 
       state.latestResult = result;

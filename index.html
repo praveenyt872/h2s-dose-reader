@@ -6,7 +6,7 @@
   <title>H2S Industrial Exposure Dosimeter & TWA Analytics</title>
 
   <!-- Clean White Light Theme Stylesheet with Cache-Buster -->
-  <link rel="stylesheet" href="style.css?v=7.0">
+  <link rel="stylesheet" href="style.css?v=10.0">
 </head>
 <body>
 
@@ -128,20 +128,20 @@
           <span class="card-title-text">
             📸 Chemical Test Strip Optical Ingestion
           </span>
-          <span class="tag-subtle">Colorimetric Reaction</span>
+          <span class="tag-subtle">Alignment Overlay</span>
         </div>
 
         <div id="stripScanControls" class="strip-ingestion-bay locked">
           <svg width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" style="color: var(--text-muted);"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
           <div style="display: flex; flex-direction: column; gap: 2px;">
             <span style="font-size: 0.95rem; font-weight: 800; color: var(--text-secondary);" id="stripDropzoneText">
-              🔒 Scan Worker QR Badge First to Unlock Strip Ingestion
+              🔒 Scan Worker QR Badge First to Unlock Strip Camera
             </span>
             <span style="font-size: 0.75rem; color: var(--text-muted);">
-              Strip analysis is tied strictly to the verified worker identity
+              Uses fixed 20mm x 40mm card geometry for 100% reliable patch sampling
             </span>
           </div>
-          <input type="file" id="fileInput" accept="image/*" capture="environment" style="display: none;">
+          <input type="file" id="fileInput" accept="image/*" style="display: none;">
         </div>
 
         <button type="button" id="demoSampleBtn" class="btn-industrial btn-glass" style="width: 100%;">
@@ -151,62 +151,85 @@
     </main>
 
     <!-- ==========================================
-         SCREEN 2: COMPUTER VISION & CALIBRATION
+         SCREEN 2: MANUAL ALIGNMENT-OVERLAY CAPTURE & SAMPLING
          ========================================== -->
     <section id="calibrate-screen" class="screen-view">
       
-      <!-- Canvas Viewport -->
-      <div class="canvas-view-container">
-        <canvas id="photoCanvas"></canvas>
-      </div>
-
-      <!-- 3-Channel Optical Patch Readout Cards -->
-      <div class="calibration-readout-grid">
-        <div id="readoutWhite" class="cal-patch-card">
-          <div class="cal-patch-header">
-            <span class="pin-indicator-dot dot-w"></span>
-            1. White Ref
+      <!-- Phase A: Live Camera with 1:2 Card Alignment Overlay -->
+      <div id="liveAlignmentSection" style="display: flex; flex-direction: column; gap: 14px; width: 100%;">
+        <div class="camera-alignment-container">
+          <video id="stripVideoFeed" autoplay playsinline muted></video>
+          <canvas id="alignmentOverlayCanvas"></canvas>
+          <div class="alignment-guideline-bar">
+            <span>📐 Align 20mm × 40mm card to the outline frame</span>
           </div>
-          <div class="rgb-display-text">--</div>
-          <div class="swatch-mini-bar"></div>
         </div>
 
-        <div id="readoutGrey" class="cal-patch-card">
-          <div class="cal-patch-header">
-            <span class="pin-indicator-dot dot-g"></span>
-            2. Grey Neutral
-          </div>
-          <div class="rgb-display-text">--</div>
-          <div class="swatch-mini-bar"></div>
-        </div>
-
-        <div id="readoutStrip" class="cal-patch-card">
-          <div class="cal-patch-header">
-            <span class="pin-indicator-dot dot-s"></span>
-            3. H2S Reactive
-          </div>
-          <div class="rgb-display-text">--</div>
-          <div class="swatch-mini-bar"></div>
-        </div>
-      </div>
-
-      <div style="text-align: center; font-size: 0.8rem; color: var(--text-secondary); font-weight: 600;" id="stepInstruction">
-        Tap White Ref → Grey Ref → H2S Chemical Strip (or click Auto-Detect)
-      </div>
-
-      <!-- Calibration Controls Toolbar -->
-      <div class="form-grid" style="margin-top: auto;">
-        <button type="button" id="autoDetectBtn" class="btn-industrial btn-cyan-glow">
-          ✨ Auto-Detect Patches
+        <button type="button" id="captureStripBtn" class="btn-industrial btn-cyan-glow" style="width: 100%; font-size: 1rem; padding: 15px;">
+          <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="3"></circle></svg>
+          📸 Capture Aligned Card Photo
         </button>
-        <button type="button" id="resetPinsBtn" class="btn-industrial btn-glass">
-          Reset Crosshairs
-        </button>
+
+        <div class="form-grid">
+          <button type="button" id="liveDemoSampleBtn" class="btn-industrial btn-glass" style="font-size: 0.8rem;">
+            ⚡ Load Demo Strip
+          </button>
+          <label for="fileInput" class="btn-industrial btn-glass" style="font-size: 0.8rem; cursor: pointer; text-align: center;">
+            📁 Upload Image
+          </label>
+        </div>
       </div>
 
-      <button type="button" id="computeDoseBtn" class="btn-industrial btn-primary-glow" style="width: 100%;" disabled>
-        ⚡ Compute Exposure Dose & TWA Concentration
-      </button>
+      <!-- Phase B: Captured Review & Optical Verification View -->
+      <div id="capturedReviewSection" style="display: none; flex-direction: column; gap: 14px; width: 100%;">
+        <div class="canvas-view-container">
+          <canvas id="photoCanvas"></canvas>
+        </div>
+
+        <!-- 3-Channel Optical Patch Readout Cards -->
+        <div class="calibration-readout-grid">
+          <div id="readoutWhite" class="cal-patch-card">
+            <div class="cal-patch-header">
+              <span class="pin-indicator-dot dot-w"></span>
+              1. White Ref
+            </div>
+            <div class="rgb-display-text">--</div>
+            <div class="swatch-mini-bar"></div>
+          </div>
+
+          <div id="readoutGrey" class="cal-patch-card">
+            <div class="cal-patch-header">
+              <span class="pin-indicator-dot dot-g"></span>
+              2. Grey Neutral
+            </div>
+            <div class="rgb-display-text">--</div>
+            <div class="swatch-mini-bar"></div>
+          </div>
+
+          <div id="readoutStrip" class="cal-patch-card">
+            <div class="cal-patch-header">
+              <span class="pin-indicator-dot dot-s"></span>
+              3. H2S Reactive
+            </div>
+            <div class="rgb-display-text">--</div>
+            <div class="swatch-mini-bar"></div>
+          </div>
+        </div>
+
+        <div style="text-align: center; font-size: 0.8rem; color: var(--text-secondary); font-weight: 700;" id="stepInstruction">
+          ✓ Fixed-geometry patches sampled. Confirm alignment before computing dose.
+        </div>
+
+        <div class="form-grid" style="margin-top: auto;">
+          <button type="button" id="retakePhotoBtn" class="btn-industrial btn-glass">
+            🔄 Retake Photo
+          </button>
+          <button type="button" id="computeDoseBtn" class="btn-industrial btn-primary-glow">
+            ⚡ Compute Dose →
+          </button>
+        </div>
+      </div>
+
     </section>
 
     <!-- ==========================================
@@ -365,7 +388,7 @@
     </footer>
   </div>
 
-  <!-- ADMIN AUTHENTICATION SECURITY MODAL (No Password Revealed) -->
+  <!-- ADMIN AUTHENTICATION SECURITY MODAL -->
   <div id="adminLoginModal" class="modal-glass-backdrop" style="display: none;">
     <div class="modal-industrial-box">
       <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -466,7 +489,7 @@
 
   <script src="qrcode.min.js"></script>
   <script src="jsqr.js"></script>
-  <script src="calibration.js?v=7.0"></script>
-  <script src="script.js?v=7.0"></script>
+  <script src="calibration.js?v=10.0"></script>
+  <script src="script.js?v=10.0"></script>
 </body>
 </html>
