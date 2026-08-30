@@ -1,8 +1,7 @@
 /**
  * H2S Dose Reader Pro — Industrial Safety & Telemetry Engine
  * Horizontal Multi-Patch Alignment-Overlay Capture System
- * Top Row: [White Ref, Grey Ref, Red Ref, Unexposed Ref Strip]
- * Bottom Row: [Exposed Reactive H2S Strip]
+ * Dual-Time Exposure Telemetry (Active Hazard Zone Time vs Full Shift 8h TWA)
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -15,7 +14,12 @@ document.addEventListener('DOMContentLoaded', () => {
     activeWorkerId: null, // Initially null - requires QR Scan
     workerId: null,
     shiftDate: new Date().toISOString().split('T')[0],
-    shiftHours: 8.0,
+    shiftHours: 8.0,       // Full daily shift duration (for 8-hr regulatory TWA)
+    activeZoneHours: 8.0,  // Actual active time inside the toxic H2S area
+    isInsideZone: false,
+    zoneEntryTimestamp: null,
+    zoneElapsedSeconds: 0,
+    zoneTimerInterval: null,
     qrVerified: false,
     verifiedWorker: null,
     latestResult: null,
@@ -35,19 +39,16 @@ document.addEventListener('DOMContentLoaded', () => {
   // Populate realistic starter compliance history if empty
   if (state.logs.length === 0) {
     state.logs = [
-      { id: Date.now() - 86400000 * 2, workerId: 'EMP-101', shiftDate: '2026-08-28', shiftHours: 8.0, dose: '22.4', doseNum: 22.4, twaPpm: '2.80', twaNum: 2.80, status: 'Normal Exposure', statusClass: 'status-safe', scannedAt: '2026-08-28 17:30' },
-      { id: Date.now() - 86400000, workerId: 'EMP-101', shiftDate: '2026-08-29', shiftHours: 8.0, dose: '38.6', doseNum: 38.6, twaPpm: '4.83', twaNum: 4.83, status: 'Normal Exposure', statusClass: 'status-safe', scannedAt: '2026-08-29 17:32' },
-      { id: Date.now() - 86400000 * 3, workerId: 'EMP-102', shiftDate: '2026-08-27', shiftHours: 8.0, dose: '92.0', doseNum: 92.0, twaPpm: '11.50', twaNum: 11.50, status: 'Elevated — Monitor', statusClass: 'status-warn', scannedAt: '2026-08-27 18:00' },
-      { id: Date.now() - 86400000 * 4, workerId: 'EMP-205', shiftDate: '2026-08-26', shiftHours: 12.0, dose: '135.0', doseNum: 135.0, twaPpm: '11.25', twaNum: 11.25, status: 'Elevated — Monitor', statusClass: 'status-warn', scannedAt: '2026-08-26 20:15' }
+      { id: Date.now() - 86400000 * 2, workerId: 'EMP-101', shiftDate: '2026-08-28', shiftHours: 8.0, activeZoneHours: 8.0, dose: '22.4', doseNum: 22.4, twaPpm: '2.80', twaNum: 2.80, zoneConcPpm: '2.80', zoneConcNum: 2.80, status: 'Normal Exposure (< 10 ppm)', statusClass: 'status-safe', scannedAt: '2026-08-28 17:30' },
+      { id: Date.now() - 86400000, workerId: 'EMP-101', shiftDate: '2026-08-29', shiftHours: 8.0, activeZoneHours: 2.0, dose: '38.6', doseNum: 38.6, twaPpm: '4.83', twaNum: 4.83, zoneConcPpm: '19.30', zoneConcNum: 19.30, status: '8h Safe • Zone High STEL', statusClass: 'status-warn', scannedAt: '2026-08-29 17:32' },
+      { id: Date.now() - 86400000 * 3, workerId: 'EMP-102', shiftDate: '2026-08-27', shiftHours: 8.0, activeZoneHours: 8.0, dose: '92.0', doseNum: 92.0, twaPpm: '11.50', twaNum: 11.50, zoneConcPpm: '11.50', zoneConcNum: 11.50, status: 'Elevated — Monitor', statusClass: 'status-warn', scannedAt: '2026-08-27 18:00' },
+      { id: Date.now() - 86400000 * 4, workerId: 'EMP-205', shiftDate: '2026-08-26', shiftHours: 12.0, activeZoneHours: 4.0, dose: '135.0', doseNum: 135.0, twaPpm: '11.25', twaNum: 11.25, zoneConcPpm: '33.75', zoneConcNum: 33.75, status: 'Danger — Action Required', statusClass: 'status-danger', scannedAt: '2026-08-26 20:15' }
     ];
     localStorage.setItem('h2s_dosimeter_logs', JSON.stringify(state.logs));
   }
 
   // ==========================================
   // PHYSICAL CARD GEOMETRY SPECIFICATIONS
-  // Horizontal Landscape Card with Multi-Zone Layout
-  // Top: White Ref, Grey Ref, Red Ref, Unexposed Ref Strip
-  // Bottom: Exposed Reactive H2S Strip
   // ==========================================
   const ZONES = {
     whiteRef:     { xPct: [0.18, 0.30], yPct: [0.08, 0.44], name: "WHITE", color: "#06B6D4" },
@@ -58,7 +59,6 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   function getOuterCardRect(frameWidth, frameHeight) {
-    // Physical card is horizontal landscape (aspect ratio ~ 2.1 : 1.0)
     let cardWidth = Math.round(frameWidth * 0.86);
     let cardHeight = Math.round(cardWidth / 2.1);
 
@@ -131,7 +131,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const stripDropzoneText = document.getElementById('stripDropzoneText');
 
   const shiftHoursInput = document.getElementById('shiftHoursInput');
-  const shiftDialBtns = document.querySelectorAll('.shift-dial-btn:not(.result-shift-btn)');
+  const activeZoneHoursInput = document.getElementById('activeZoneHoursInput');
+  const zoneLiveBadge = document.getElementById('zoneLiveBadge');
+  const zoneStatusIndicator = document.getElementById('zoneStatusIndicator');
+  const zoneTimerLabel = document.getElementById('zoneTimerLabel');
+  const zoneTimerClock = document.getElementById('zoneTimerClock');
+  const zoneTimestampMeta = document.getElementById('zoneTimestampMeta');
+  const zoneToggleBtn = document.getElementById('zoneToggleBtn');
+  const zoneToggleBtnText = document.getElementById('zoneToggleBtnText');
 
   const fileInput = document.getElementById('fileInput');
   const demoSampleBtn = document.getElementById('demoSampleBtn');
@@ -156,13 +163,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const readoutRefStrip = document.getElementById('readoutRefStrip');
   const readoutStrip = document.getElementById('readoutStrip');
 
-  // Screen 3 Result Elements
+  // Screen 3 Result Elements (Tri-Metric Cockpit)
   const resultDoseVal = document.getElementById('resultDoseVal');
   const resultTwaVal = document.getElementById('resultTwaVal');
+  const resultZoneConcVal = document.getElementById('resultZoneConcVal');
   const resultShiftHoursLabel = document.getElementById('resultShiftHoursLabel');
+  const resultActiveHoursLabel = document.getElementById('resultActiveHoursLabel');
   const resultStatusBadge = document.getElementById('resultStatusBadge');
-  const resultShiftInput = document.getElementById('resultShiftInput');
-  const resultShiftBtns = document.querySelectorAll('.result-shift-btn');
+  const resultZoneStatusBadge = document.getElementById('resultZoneStatusBadge');
+  const resultZoneHoursInput = document.getElementById('resultZoneHoursInput');
+  const resultZoneBtns = document.querySelectorAll('.result-zone-btn');
 
   const rawSwatch = document.getElementById('rawSwatch');
   const correctedSwatch = document.getElementById('correctedSwatch');
@@ -211,12 +221,194 @@ document.addEventListener('DOMContentLoaded', () => {
   // Defaults
   if (modalShiftDateInput) modalShiftDateInput.value = state.shiftDate;
   if (shiftHoursInput) shiftHoursInput.value = '8.0';
-  if (resultShiftInput) resultShiftInput.value = '8.0';
+  if (activeZoneHoursInput) activeZoneHoursInput.value = '8.0';
+  if (resultZoneHoursInput) resultZoneHoursInput.value = '8.0';
 
   updateRoleUI();
 
   // ==========================================
-  // 2. ROLE-BASED ACCESS CONTROL (RBAC) LOGIC
+  // 2. LIVE ZONE IN/OUT LOGGER & DUAL-TIME TELEMETRY
+  // ==========================================
+  if (zoneToggleBtn) {
+    zoneToggleBtn.addEventListener('click', toggleZoneEntryExit);
+  }
+
+  function toggleZoneEntryExit() {
+    state.isInsideZone = !state.isInsideZone;
+
+    if (state.isInsideZone) {
+      // ENTERED TOXIC ZONE
+      state.zoneEntryTimestamp = new Date();
+      if (zoneLiveBadge) {
+        zoneLiveBadge.textContent = 'Inside H₂S Zone';
+        zoneLiveBadge.style.background = '#FEF2F2';
+        zoneLiveBadge.style.color = '#DC2626';
+        zoneLiveBadge.style.borderColor = '#FECACA';
+      }
+      if (zoneStatusIndicator) {
+        zoneStatusIndicator.className = 'zone-status-indicator inside-zone';
+      }
+      if (zoneTimerLabel) {
+        zoneTimerLabel.textContent = '🔴 Active Exposure Timer (Running):';
+      }
+      if (zoneTimestampMeta) {
+        zoneTimestampMeta.textContent = `Entered: ${state.zoneEntryTimestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+      }
+      if (zoneToggleBtn) {
+        zoneToggleBtn.className = 'btn-zone-toggle btn-zone-exit';
+      }
+      if (zoneToggleBtnText) {
+        zoneToggleBtnText.textContent = '🔴 Check-Out: Exited to Clean Air';
+      }
+
+      if (state.zoneTimerInterval) clearInterval(state.zoneTimerInterval);
+      state.zoneTimerInterval = setInterval(updateZoneClock, 1000);
+    } else {
+      // EXITED TO CLEAN AIR
+      if (state.zoneTimerInterval) {
+        clearInterval(state.zoneTimerInterval);
+        state.zoneTimerInterval = null;
+      }
+
+      const exitTime = new Date();
+      if (zoneLiveBadge) {
+        zoneLiveBadge.textContent = 'Outside Zone';
+        zoneLiveBadge.style.background = '#ECFDF5';
+        zoneLiveBadge.style.color = '#059669';
+        zoneLiveBadge.style.borderColor = '#A7F3D0';
+      }
+      if (zoneStatusIndicator) {
+        zoneStatusIndicator.className = 'zone-status-indicator outside-zone';
+      }
+      if (zoneTimerLabel) {
+        zoneTimerLabel.textContent = '🟢 Total Logged Toxic Area Time:';
+      }
+      if (zoneTimestampMeta) {
+        zoneTimestampMeta.textContent = `Exited: ${exitTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+      }
+      if (zoneToggleBtn) {
+        zoneToggleBtn.className = 'btn-zone-toggle btn-zone-enter';
+      }
+      if (zoneToggleBtnText) {
+        zoneToggleBtnText.textContent = '🟢 Check-In: Entering H₂S Zone';
+      }
+
+      // Compute active zone hours from elapsed seconds
+      const computedHours = Math.max(0.1, (state.zoneElapsedSeconds / 3600));
+      syncActiveZoneHoursUI(computedHours);
+    }
+  }
+
+  function updateZoneClock() {
+    state.zoneElapsedSeconds++;
+    const hrs = Math.floor(state.zoneElapsedSeconds / 3600);
+    const mins = Math.floor((state.zoneElapsedSeconds % 3600) / 60);
+    const secs = state.zoneElapsedSeconds % 60;
+
+    const formatted = `${String(hrs).padStart(2, '0')}h ${String(mins).padStart(2, '0')}m ${String(secs).padStart(2, '0')}s`;
+    if (zoneTimerClock) {
+      zoneTimerClock.textContent = formatted;
+    }
+
+    const computedHours = Math.max(0.1, (state.zoneElapsedSeconds / 3600));
+    if (activeZoneHoursInput) activeZoneHoursInput.value = computedHours.toFixed(1);
+    if (resultZoneHoursInput) resultZoneHoursInput.value = computedHours.toFixed(1);
+    state.activeZoneHours = computedHours;
+  }
+
+  function syncActiveZoneHoursUI(hours) {
+    state.activeZoneHours = Math.max(0.1, hours);
+    const hoursStr = state.activeZoneHours.toFixed(1);
+
+    if (activeZoneHoursInput) activeZoneHoursInput.value = hoursStr;
+    if (resultZoneHoursInput) resultZoneHoursInput.value = hoursStr;
+
+    resultZoneBtns.forEach(btn => {
+      btn.classList.toggle('active', parseFloat(btn.dataset.hours) === state.activeZoneHours);
+    });
+
+    if (state.latestResult) {
+      recomputeResultWithDurations(state.shiftHours, state.activeZoneHours);
+    }
+  }
+
+  if (activeZoneHoursInput) {
+    activeZoneHoursInput.addEventListener('input', (e) => {
+      const val = parseFloat(e.target.value);
+      if (!isNaN(val) && val > 0) syncActiveZoneHoursUI(val);
+    });
+  }
+
+  if (resultZoneHoursInput) {
+    resultZoneHoursInput.addEventListener('input', (e) => {
+      const val = parseFloat(e.target.value);
+      if (!isNaN(val) && val > 0) syncActiveZoneHoursUI(val);
+    });
+  }
+
+  resultZoneBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const hours = parseFloat(btn.dataset.hours) || 8.0;
+      syncActiveZoneHoursUI(hours);
+    });
+  });
+
+  if (shiftHoursInput) {
+    shiftHoursInput.addEventListener('input', (e) => {
+      const val = parseFloat(e.target.value);
+      if (!isNaN(val) && val > 0) {
+        state.shiftHours = val;
+        if (state.latestResult) recomputeResultWithDurations(state.shiftHours, state.activeZoneHours);
+      }
+    });
+  }
+
+  function recomputeResultWithDurations(shiftHrs, activeZoneHrs) {
+    if (!state.latestResult) return;
+    const dose = state.latestResult.doseNum;
+
+    const twaPpm = (dose / Math.max(0.1, shiftHrs));
+    const zoneConcPpm = (dose / Math.max(0.1, activeZoneHrs));
+
+    state.latestResult.shiftHours = shiftHrs;
+    state.latestResult.activeZoneHours = activeZoneHrs;
+    state.latestResult.twaPpm = twaPpm.toFixed(2);
+    state.latestResult.twaNum = twaPpm;
+    state.latestResult.zoneConcPpm = zoneConcPpm.toFixed(2);
+    state.latestResult.zoneConcNum = zoneConcPpm;
+
+    // Dual safety classification
+    let status = '8h Normal Exposure (< 10 ppm)';
+    let statusClass = 'status-safe';
+
+    if (dose >= DOSE_THRESHOLD_HIGH || twaPpm >= TWA_THRESHOLD_HIGH || zoneConcPpm >= 15.0) {
+      status = '🔴 Danger — STEL / Action Required';
+      statusClass = 'status-danger';
+    } else if (dose >= DOSE_THRESHOLD_LOW || twaPpm >= TWA_THRESHOLD_LOW || zoneConcPpm >= 10.0) {
+      status = '🟡 Elevated — Monitor in Zone';
+      statusClass = 'status-warn';
+    }
+
+    state.latestResult.status = status;
+    state.latestResult.statusClass = statusClass;
+
+    if (state.logs.length > 0) {
+      state.logs[0].shiftHours = shiftHrs;
+      state.logs[0].activeZoneHours = activeZoneHrs;
+      state.logs[0].twaPpm = twaPpm.toFixed(2);
+      state.logs[0].twaNum = twaPpm;
+      state.logs[0].zoneConcPpm = zoneConcPpm.toFixed(2);
+      state.logs[0].zoneConcNum = zoneConcPpm;
+      state.logs[0].status = status;
+      state.logs[0].statusClass = statusClass;
+      localStorage.setItem('h2s_dosimeter_logs', JSON.stringify(state.logs));
+    }
+
+    displayResult(state.latestResult);
+  }
+
+  // ==========================================
+  // 3. ROLE-BASED ACCESS CONTROL (RBAC) LOGIC
   // ==========================================
   function updateRoleUI() {
     if (state.userRole === 'admin') {
@@ -239,7 +431,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (headerRoleText) {
           headerRoleText.textContent = state.qrVerified && state.activeWorkerId 
             ? `Worker: ${state.activeWorkerId}` 
-            : 'Awaiting QR Scan';
+            : 'Scan QR';
         }
       }
       if (adminPortalToggleBtn) {
@@ -317,92 +509,6 @@ document.addEventListener('DOMContentLoaded', () => {
     adminPinInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') window.handleAdminPinSubmit();
     });
-  }
-
-  // ==========================================
-  // 3. SHIFT DURATION PRESETS & LIVE SYNC
-  // ==========================================
-  function syncShiftHoursUI(hours) {
-    state.shiftHours = Math.max(0.1, hours);
-    const hoursStr = state.shiftHours.toFixed(1);
-
-    if (shiftHoursInput) shiftHoursInput.value = hoursStr;
-    if (resultShiftInput) resultShiftInput.value = hoursStr;
-
-    shiftDialBtns.forEach(btn => {
-      btn.classList.toggle('active', parseFloat(btn.dataset.hours) === state.shiftHours);
-    });
-
-    resultShiftBtns.forEach(btn => {
-      btn.classList.toggle('active', parseFloat(btn.dataset.hours) === state.shiftHours);
-    });
-
-    if (state.latestResult) {
-      recomputeDoseWithNewHours(state.shiftHours);
-    }
-  }
-
-  shiftDialBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      const hours = parseFloat(btn.dataset.hours) || 8.0;
-      syncShiftHoursUI(hours);
-    });
-  });
-
-  resultShiftBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      const hours = parseFloat(btn.dataset.hours) || 8.0;
-      syncShiftHoursUI(hours);
-    });
-  });
-
-  if (shiftHoursInput) {
-    shiftHoursInput.addEventListener('input', (e) => {
-      const val = parseFloat(e.target.value);
-      if (!isNaN(val) && val > 0) syncShiftHoursUI(val);
-    });
-  }
-
-  if (resultShiftInput) {
-    resultShiftInput.addEventListener('input', (e) => {
-      const val = parseFloat(e.target.value);
-      if (!isNaN(val) && val > 0) syncShiftHoursUI(val);
-    });
-  }
-
-  function recomputeDoseWithNewHours(hours) {
-    if (!state.latestResult) return;
-    const dose = state.latestResult.doseNum;
-    const twaPpm = (dose / Math.max(0.1, hours));
-    
-    state.latestResult.shiftHours = hours;
-    state.latestResult.twaPpm = twaPpm.toFixed(2);
-    state.latestResult.twaNum = twaPpm;
-
-    let status = '🟢 Normal Exposure (< 10 ppm)';
-    let statusClass = 'status-safe';
-
-    if (dose >= DOSE_THRESHOLD_HIGH || twaPpm >= TWA_THRESHOLD_HIGH) {
-      status = '🔴 High — Action Required (> 15 ppm)';
-      statusClass = 'status-danger';
-    } else if (dose >= DOSE_THRESHOLD_LOW || twaPpm >= TWA_THRESHOLD_LOW) {
-      status = '🟡 Elevated — Monitor (10-15 ppm)';
-      statusClass = 'status-warn';
-    }
-
-    state.latestResult.status = status;
-    state.latestResult.statusClass = statusClass;
-
-    if (state.logs.length > 0) {
-      state.logs[0].shiftHours = hours;
-      state.logs[0].twaPpm = twaPpm.toFixed(2);
-      state.logs[0].twaNum = twaPpm;
-      state.logs[0].status = status;
-      state.logs[0].statusClass = statusClass;
-      localStorage.setItem('h2s_dosimeter_logs', JSON.stringify(state.logs));
-    }
-
-    displayResult(state.latestResult);
   }
 
   // ==========================================
@@ -572,8 +678,8 @@ document.addEventListener('DOMContentLoaded', () => {
     state.workerId = scannedWorkerId;
     state.activeWorkerId = scannedWorkerId;
     state.shiftDate = scannedShiftDate;
+    state.shiftHours = scannedShiftHours;
     
-    syncShiftHoursUI(scannedShiftHours);
     updateRoleUI();
 
     if (displayWorkerName) displayWorkerName.textContent = `${scannedWorkerId} (Verified)`;
@@ -583,7 +689,7 @@ document.addEventListener('DOMContentLoaded', () => {
       workerAvatarBox.className = 'id-avatar-box verified';
     }
     if (stripLockStatusTag) {
-      stripLockStatusTag.textContent = '✓ Profile Loaded';
+      stripLockStatusTag.textContent = '✓ Pass Loaded';
       stripLockStatusTag.style.background = 'var(--color-emerald-light)';
       stripLockStatusTag.style.color = 'var(--color-emerald)';
       stripLockStatusTag.style.borderColor = 'var(--color-emerald-border)';
@@ -814,7 +920,7 @@ document.addEventListener('DOMContentLoaded', () => {
     cCtx.fillRect(0, 0, width, height);
     cCtx.clearRect(outerRect.x, outerRect.y, outerRect.width, outerRect.height);
 
-    // Outer Card Border (Horizontal card boundary)
+    // Outer Card Border
     cCtx.strokeStyle = '#FFFFFF';
     cCtx.lineWidth = 3;
     cCtx.strokeRect(outerRect.x, outerRect.y, outerRect.width, outerRect.height);
@@ -842,7 +948,7 @@ document.addEventListener('DOMContentLoaded', () => {
     cCtx.lineTo(outerRect.x + outerRect.width, outerRect.y + outerRect.height - bracketLen);
     cCtx.stroke();
 
-    // Draw Divider Line between Top Row and Bottom Row
+    // Draw Divider Line
     const dividerY = outerRect.y + outerRect.height * 0.48;
     cCtx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
     cCtx.lineWidth = 1.5;
@@ -853,12 +959,11 @@ document.addEventListener('DOMContentLoaded', () => {
     cCtx.stroke();
     cCtx.setLineDash([]);
 
-    // Draw Sub-zones (White, Grey, Red, Ref Strip, Exposed Strip)
+    // Draw Sub-zones
     Object.keys(ZONES).forEach(key => {
       const zone = ZONES[key];
       const zPx = getZonePixels(zone, outerRect);
 
-      // Inset filled rectangle
       cCtx.fillStyle = hexToRgba(zone.color, 0.20);
       cCtx.fillRect(zPx.x, zPx.y, zPx.w, zPx.h);
 
@@ -868,7 +973,6 @@ document.addEventListener('DOMContentLoaded', () => {
       cCtx.strokeRect(zPx.x, zPx.y, zPx.w, zPx.h);
       cCtx.setLineDash([]);
 
-      // Label badge
       cCtx.fillStyle = zone.color;
       cCtx.font = `bold ${Math.max(10, Math.round(outerRect.width * 0.024))}px sans-serif`;
       cCtx.textAlign = 'left';
@@ -884,7 +988,6 @@ document.addEventListener('DOMContentLoaded', () => {
     return `rgba(${(num >> 16) & 255}, ${(num >> 8) & 255}, ${num & 255}, ${alpha})`;
   }
 
-  // Capture Button: Takes photo from video stream and samples zones by fixed geometry
   if (captureStripBtn) {
     captureStripBtn.addEventListener('click', () => {
       if (!stripVideoFeed || stripVideoFeed.videoWidth === 0) {
@@ -897,19 +1000,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
       photoCanvas.width = vw;
       photoCanvas.height = vh;
-
-      // Draw current video frame to canvas at native resolution
       photoCtx.drawImage(stripVideoFeed, 0, 0, vw, vh);
 
       const outerRect = getOuterCardRect(vw, vh);
-
-      // Sample average RGB from the exact fixed zones
       sampleZonesAndDisplay(photoCtx, outerRect);
 
-      // Stop camera stream now that photo is captured
       stopStripCameraStream();
 
-      // Switch to Review & Verification View
       if (liveAlignmentSection) liveAlignmentSection.style.display = 'none';
       if (capturedReviewSection) capturedReviewSection.style.display = 'flex';
     });
@@ -936,20 +1033,15 @@ document.addEventListener('DOMContentLoaded', () => {
       exposedStrip: stripRgb
     };
 
-    // Draw confirmation overlay onto the captured still photo canvas
     drawCaptureConfirmationOverlay(canvasCtx, outerRect);
-
-    // Update readout cards
     updateReadoutCards(whiteRgb, greyRgb, redRgb, refStripRgb, stripRgb);
   }
 
   function drawCaptureConfirmationOverlay(canvasCtx, outerRect) {
-    // Draw outer card boundary
     canvasCtx.strokeStyle = '#38BDF8';
     canvasCtx.lineWidth = 3;
     canvasCtx.strokeRect(outerRect.x, outerRect.y, outerRect.width, outerRect.height);
 
-    // Highlight sampled zones
     Object.keys(ZONES).forEach(key => {
       const zone = ZONES[key];
       const zPx = getZonePixels(zone, outerRect);
@@ -961,7 +1053,6 @@ document.addEventListener('DOMContentLoaded', () => {
       canvasCtx.lineWidth = 2.5;
       canvasCtx.strokeRect(zPx.x, zPx.y, zPx.w, zPx.h);
 
-      // Draw label
       canvasCtx.fillStyle = '#FFFFFF';
       canvasCtx.font = `bold ${Math.max(11, Math.round(outerRect.width * 0.025))}px sans-serif`;
       canvasCtx.textAlign = 'left';
@@ -996,14 +1087,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Retake Photo Button: Returns to live alignment camera
   if (retakePhotoBtn) {
     retakePhotoBtn.addEventListener('click', () => {
       startStripCameraStream();
     });
   }
 
-  // Process Static Image (from file upload)
   function processStaticImageWithAlignment(img) {
     stopStripCameraStream();
 
@@ -1031,7 +1120,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (capturedReviewSection) capturedReviewSection.style.display = 'flex';
   }
 
-  // Demo Card Generator matching user's horizontal multi-patch card
   function generateAndProcessDemoCard() {
     stopStripCameraStream();
 
@@ -1040,49 +1128,40 @@ document.addEventListener('DOMContentLoaded', () => {
     photoCanvas.width = cw;
     photoCanvas.height = ch;
 
-    // Background surface
     photoCtx.fillStyle = '#0F172A';
     photoCtx.fillRect(0, 0, cw, ch);
 
     const outerRect = getOuterCardRect(cw, ch);
 
-    // Card Body
     photoCtx.fillStyle = '#E2E8F0';
     photoCtx.fillRect(outerRect.x, outerRect.y, outerRect.width, outerRect.height);
 
-    // Marker area on left
     photoCtx.fillStyle = '#CBD5E1';
     photoCtx.fillRect(outerRect.x + outerRect.width * 0.04, outerRect.y + outerRect.height * 0.08, outerRect.width * 0.11, outerRect.height * 0.36);
     photoCtx.fillStyle = '#334155';
     photoCtx.font = 'bold 16px monospace';
     photoCtx.fillText('⛶', outerRect.x + outerRect.width * 0.07, outerRect.y + outerRect.height * 0.30);
 
-    // Zone 1: White Ref
     const whitePx = getZonePixels(ZONES.whiteRef, outerRect);
     photoCtx.fillStyle = 'rgb(250, 250, 246)';
     photoCtx.fillRect(whitePx.x, whitePx.y, whitePx.w, whitePx.h);
 
-    // Zone 2: Grey Neutral Ref
     const greyPx = getZonePixels(ZONES.greyRef, outerRect);
     photoCtx.fillStyle = 'rgb(170, 185, 205)';
     photoCtx.fillRect(greyPx.x, greyPx.y, greyPx.w, greyPx.h);
 
-    // Zone 3: Red Chromatic Ref
     const redPx = getZonePixels(ZONES.redRef, outerRect);
     photoCtx.fillStyle = 'rgb(205, 35, 45)';
     photoCtx.fillRect(redPx.x, redPx.y, redPx.w, redPx.h);
 
-    // Zone 4: Unexposed Reference Strip (non-reacting)
     const refStripPx = getZonePixels(ZONES.refStrip, outerRect);
     photoCtx.fillStyle = 'rgb(248, 246, 240)';
     photoCtx.fillRect(refStripPx.x, refStripPx.y, refStripPx.w, refStripPx.h);
 
-    // Zone 5: Exposed Chemical Reactive H2S Strip (Full length bottom)
     const stripPx = getZonePixels(ZONES.exposedStrip, outerRect);
     photoCtx.fillStyle = 'rgb(195, 155, 125)';
     photoCtx.fillRect(stripPx.x, stripPx.y, stripPx.w, stripPx.h);
 
-    // Sample zones by fixed geometry
     sampleZonesAndDisplay(photoCtx, outerRect);
 
     if (liveAlignmentSection) liveAlignmentSection.style.display = 'none';
@@ -1090,7 +1169,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ==========================================
-  // 9. DOSE COMPUTATION & CONTINUOUS LOOKUP
+  // 9. DOSE COMPUTATION & DUAL-TIME TELEMETRY
   // ==========================================
   if (computeDoseBtn) {
     computeDoseBtn.addEventListener('click', () => {
@@ -1099,14 +1178,18 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      const currentHours = parseFloat(shiftHoursInput ? shiftHoursInput.value : 8.0) || state.shiftHours || 8.0;
-      state.shiftHours = currentHours;
+      const shiftHrs = parseFloat(shiftHoursInput ? shiftHoursInput.value : 8.0) || state.shiftHours || 8.0;
+      const zoneHrs = parseFloat(activeZoneHoursInput ? activeZoneHoursInput.value : 8.0) || state.activeZoneHours || 8.0;
+      state.shiftHours = shiftHrs;
+      state.activeZoneHours = zoneHrs;
 
       const result = computeDoseAlgorithm(
         state.sampledColors.whiteRef,
         state.sampledColors.greyRef,
         state.sampledColors.refStrip,
-        state.sampledColors.exposedStrip
+        state.sampledColors.exposedStrip,
+        shiftHrs,
+        zoneHrs
       );
 
       state.latestResult = result;
@@ -1117,18 +1200,15 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  function computeDoseAlgorithm(whiteRef, greyRef, refStrip, stripRaw) {
-    // White Balance Normalization Gains
+  function computeDoseAlgorithm(whiteRef, greyRef, refStrip, stripRaw, shiftHrs, zoneHrs) {
     const scaleR = whiteRef.r > 0 ? 255 / whiteRef.r : 1;
     const scaleG = whiteRef.g > 0 ? 255 / whiteRef.g : 1;
     const scaleB = whiteRef.b > 0 ? 255 / whiteRef.b : 1;
 
-    // Corrected Exposed Strip
     const correctedR = Math.min(255, Math.max(0, Math.round(stripRaw.r * scaleR)));
     const correctedG = Math.min(255, Math.max(0, Math.round(stripRaw.g * scaleG)));
     const correctedB = Math.min(255, Math.max(0, Math.round(stripRaw.b * scaleB)));
 
-    // Corrected Unexposed Reference Strip
     const refCorrR = Math.min(255, Math.max(0, Math.round(refStrip.r * scaleR)));
     const refCorrG = Math.min(255, Math.max(0, Math.round(refStrip.g * scaleG)));
     const refCorrB = Math.min(255, Math.max(0, Math.round(refStrip.b * scaleB)));
@@ -1136,23 +1216,37 @@ document.addEventListener('DOMContentLoaded', () => {
     const luminance = 0.299 * correctedR + 0.587 * correctedG + 0.114 * correctedB;
     const refLuminance = 0.299 * refCorrR + 0.587 * refCorrG + 0.114 * refCorrB;
 
-    // Differential Darkness relative to unexposed substrate
     const darkness = Math.min(255, Math.max(0, 255 - luminance));
 
     const dose = typeof getCalibratedDose === 'function' ? getCalibratedDose(darkness) : 0;
     
-    const shiftHours = Math.max(0.1, state.shiftHours || 8.0);
-    const twaPpm = (dose / shiftHours);
+    const validShiftHrs = Math.max(0.1, shiftHrs || state.shiftHours || 8.0);
+    const validZoneHrs = Math.max(0.1, zoneHrs || state.activeZoneHours || validShiftHrs);
 
-    let status = '🟢 Normal Exposure (< 10 ppm)';
+    const twaPpm = (dose / validShiftHrs);
+    const zoneConcPpm = (dose / validZoneHrs);
+
+    // Dual safety classification
+    let status = '8h Normal Exposure (< 10 ppm)';
     let statusClass = 'status-safe';
 
-    if (dose >= DOSE_THRESHOLD_HIGH || twaPpm >= TWA_THRESHOLD_HIGH) {
-      status = '🔴 High — Action Required (> 15 ppm)';
+    if (dose >= DOSE_THRESHOLD_HIGH || twaPpm >= TWA_THRESHOLD_HIGH || zoneConcPpm >= 15.0) {
+      status = '🔴 Danger — Action Required (> 15 ppm STEL)';
       statusClass = 'status-danger';
-    } else if (dose >= DOSE_THRESHOLD_LOW || twaPpm >= TWA_THRESHOLD_LOW) {
-      status = '🟡 Elevated — Monitor (10-15 ppm)';
+    } else if (dose >= DOSE_THRESHOLD_LOW || twaPpm >= TWA_THRESHOLD_LOW || zoneConcPpm >= 10.0) {
+      status = '🟡 Elevated — Monitor Exposure (10-15 ppm)';
       statusClass = 'status-warn';
+    }
+
+    let zoneStatus = '🟢 Active Task Zone Intensity: Safe (< 10 ppm)';
+    let zoneStatusClass = 'status-safe';
+
+    if (zoneConcPpm >= 15.0) {
+      zoneStatus = `🔴 Active Zone STEL Hazard: ${zoneConcPpm.toFixed(1)} ppm (> 15 ppm Ceiling Limit!)`;
+      zoneStatusClass = 'status-danger';
+    } else if (zoneConcPpm >= 10.0) {
+      zoneStatus = `🟡 Active Zone Warning: ${zoneConcPpm.toFixed(1)} ppm (Elevated Task Intensity)`;
+      zoneStatusClass = 'status-warn';
     }
 
     const workerId = state.verifiedWorker ? state.verifiedWorker.workerId : (state.workerId || 'EMP-101');
@@ -1161,7 +1255,8 @@ document.addEventListener('DOMContentLoaded', () => {
     return {
       workerId,
       shiftDate,
-      shiftHours,
+      shiftHours: validShiftHrs,
+      activeZoneHours: validZoneHrs,
       whiteRef,
       greyRef,
       refStrip,
@@ -1176,8 +1271,12 @@ document.addEventListener('DOMContentLoaded', () => {
       doseNum: dose,
       twaPpm: twaPpm.toFixed(2),
       twaNum: twaPpm,
+      zoneConcPpm: zoneConcPpm.toFixed(2),
+      zoneConcNum: zoneConcPpm,
       status,
       statusClass,
+      zoneStatus,
+      zoneStatusClass,
       scannedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
   }
@@ -1188,10 +1287,13 @@ document.addEventListener('DOMContentLoaded', () => {
       workerId: res.workerId,
       shiftDate: res.shiftDate,
       shiftHours: res.shiftHours,
+      activeZoneHours: res.activeZoneHours,
       dose: res.dose,
       doseNum: res.doseNum,
       twaPpm: res.twaPpm,
       twaNum: res.twaNum,
+      zoneConcPpm: res.zoneConcPpm,
+      zoneConcNum: res.zoneConcNum,
       status: res.status,
       statusClass: res.statusClass,
       scannedAt: new Date().toLocaleDateString() + ' ' + res.scannedAt
@@ -1207,11 +1309,18 @@ document.addEventListener('DOMContentLoaded', () => {
   function displayResult(res) {
     if (resultDoseVal) resultDoseVal.textContent = res.dose;
     if (resultTwaVal) resultTwaVal.textContent = res.twaPpm;
+    if (resultZoneConcVal) resultZoneConcVal.textContent = res.zoneConcPpm;
     if (resultShiftHoursLabel) resultShiftHoursLabel.textContent = res.shiftHours.toFixed(1);
+    if (resultActiveHoursLabel) resultActiveHoursLabel.textContent = res.activeZoneHours.toFixed(1);
 
     if (resultStatusBadge) {
-      resultStatusBadge.textContent = res.status;
-      resultStatusBadge.className = `safety-status-banner ${res.statusClass}`;
+      resultStatusBadge.textContent = `8h Full-Shift TWA: ${res.twaPpm} ppm (${res.twaNum < 10 ? 'Pass' : 'Exceeded'})`;
+      resultStatusBadge.className = `safety-status-banner ${res.twaNum >= 15 ? 'status-danger' : (res.twaNum >= 10 ? 'status-warn' : 'status-safe')}`;
+    }
+
+    if (resultZoneStatusBadge) {
+      resultZoneStatusBadge.textContent = res.zoneStatus || `Active Task Zone: ${res.zoneConcPpm} ppm`;
+      resultZoneStatusBadge.className = `safety-status-banner ${res.zoneStatusClass || 'status-safe'}`;
     }
 
     const rawRgbStr = `rgb(${res.stripRaw.r}, ${res.stripRaw.g}, ${res.stripRaw.b})`;
@@ -1229,7 +1338,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderContinuousCalibrationChart(container, activeDarkness, activeDose) {
     if (!container) return;
     container.innerHTML = '';
-    const svgWidth = 520;
+    const svgWidth = 500;
     const svgHeight = 140;
     const pad = 30;
 
@@ -1259,7 +1368,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <polyline points="${pointsSvg.join(' ')}" fill="none" stroke="#2563EB" stroke-width="3" stroke-linecap="round"/>
 
         <circle cx="${activeX}" cy="${activeY}" r="7" fill="#D97706" stroke="#FFFFFF" stroke-width="2"/>
-        <text x="${activeX + 10}" y="${activeY - 6}" font-size="11" font-weight="900" fill="#0F172A">${activeDose.toFixed(1)} ppm·hr (${(activeDose / state.shiftHours).toFixed(2)} ppm TWA)</text>
+        <text x="${activeX + 10}" y="${activeY - 6}" font-size="10" font-weight="900" fill="#0F172A">${activeDose.toFixed(1)} ppm·hr (${(activeDose / state.activeZoneHours).toFixed(1)} ppm in zone)</text>
       </svg>
     `;
 
@@ -1286,9 +1395,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!state.qrVerified || !activeId) {
         logTableBody.innerHTML = `
           <tr>
-            <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 32px;">
+            <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 28px;">
               🔒 <strong>Worker Privacy Shield</strong><br>
-              <span style="font-size:0.78rem;">Please scan your Worker QR Code on Step 1 to unlock your personal exposure history.</span>
+              <span style="font-size:0.75rem;">Scan Worker QR Pass on Step 1 to unlock your records.</span>
             </td>
           </tr>
         `;
@@ -1312,8 +1421,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (roleFilteredLogs.length === 0) {
       logTableBody.innerHTML = `
         <tr>
-          <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 28px;">
-            ${state.userRole === 'admin' ? 'No matching company records in master database.' : `No private exposure logs found for Worker ID: <strong>${activeId}</strong>.`}
+          <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 24px;">
+            ${state.userRole === 'admin' ? 'No matching company records.' : `No exposure logs for Worker ID: <strong>${activeId}</strong>.`}
           </td>
         </tr>
       `;
@@ -1322,16 +1431,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     roleFilteredLogs.forEach(log => {
       const tr = document.createElement('tr');
-      const hoursDisplay = log.shiftHours ? `${parseFloat(log.shiftHours).toFixed(1)}h` : '8.0h';
-      const twaDisplay = log.twaPpm ? `${log.twaPpm} ppm` : `${(parseFloat(log.dose) / (log.shiftHours || 8)).toFixed(2)} ppm`;
+      const shiftHrs = log.shiftHours ? `${parseFloat(log.shiftHours).toFixed(1)}h` : '8.0h';
+      const activeHrs = log.activeZoneHours ? `${parseFloat(log.activeZoneHours).toFixed(1)}h` : shiftHrs;
+      const twaDisplay = log.twaPpm ? `${log.twaPpm}` : `${(parseFloat(log.dose) / (log.shiftHours || 8)).toFixed(2)}`;
+      const zoneDisplay = log.zoneConcPpm ? `${log.zoneConcPpm}` : twaDisplay;
 
       tr.innerHTML = `
         <td><strong style="font-family: var(--font-mono); color: #2563EB;">${escapeHtml(log.workerId)}</strong></td>
         <td>${escapeHtml(log.shiftDate)}</td>
-        <td><span class="tag-subtle">${escapeHtml(hoursDisplay)}</span></td>
-        <td><strong>${escapeHtml(log.dose)} ppm·hr</strong></td>
-        <td><strong style="color: var(--color-amber); font-family: var(--font-mono);">${escapeHtml(twaDisplay)}</strong></td>
-        <td><span class="safety-status-banner ${log.statusClass || 'status-safe'}" style="font-size:0.7rem; padding:2px 8px;">${escapeHtml(log.status)}</span></td>
+        <td><span class="tag-subtle" style="font-size:0.68rem;">${escapeHtml(shiftHrs)} / <strong style="color:var(--color-amber);">${escapeHtml(activeHrs)}</strong></span></td>
+        <td><strong>${escapeHtml(log.dose)}</strong></td>
+        <td><span style="color: #2563EB; font-family: var(--font-mono); font-weight:700;">${escapeHtml(twaDisplay)}</span></td>
+        <td><strong style="color: var(--color-amber); font-family: var(--font-mono);">${escapeHtml(zoneDisplay)}</strong></td>
+        <td><span class="safety-status-banner ${log.statusClass || 'status-safe'}" style="font-size:0.65rem; padding:2px 6px;">${escapeHtml(log.status)}</span></td>
       `;
       logTableBody.appendChild(tr);
     });
@@ -1354,18 +1466,22 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      const headers = ['Worker ID', 'Shift Date', 'Shift Hours', 'Cumulative Dose (ppm·hr)', 'TWA Concentration (ppm)', 'Safety Status', 'Timestamp'];
+      const headers = ['Worker ID', 'Shift Date', 'Shift Hours', 'Active Zone Hours', 'Cumulative Dose (ppm·hr)', '8h Shift TWA (ppm)', 'Active Zone Conc (ppm)', 'Safety Status', 'Timestamp'];
       const csvRows = [headers.join(',')];
 
       logsToExport.forEach(log => {
         const hours = log.shiftHours || 8.0;
+        const activeHours = log.activeZoneHours || hours;
         const twa = log.twaPpm || (parseFloat(log.dose) / hours).toFixed(2);
+        const zoneConc = log.zoneConcPpm || (parseFloat(log.dose) / activeHours).toFixed(2);
         csvRows.push([
           `"${log.workerId}"`,
           `"${log.shiftDate}"`,
           `"${hours}"`,
+          `"${activeHours}"`,
           `"${log.dose}"`,
           `"${twa}"`,
+          `"${zoneConc}"`,
           `"${log.status}"`,
           `"${log.scannedAt}"`
         ].join(','));

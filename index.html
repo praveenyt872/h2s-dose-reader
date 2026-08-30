@@ -14,7 +14,7 @@
   <link rel="apple-touch-icon" href="icon-192.png">
 
   <!-- Mobile App Interface Stylesheet with Cache-Buster -->
-  <link rel="stylesheet" href="style.css?v=12.0">
+  <link rel="stylesheet" href="style.css?v=13.0">
 </head>
 <body>
 
@@ -53,7 +53,7 @@
     </header>
 
     <!-- ==========================================
-         SCREEN 1: INGESTION & WORKER IDENTIFICATION
+         SCREEN 1: INGESTION, WORKER PASS & ZONE LOGGER
          ========================================== -->
     <main id="scan-screen" class="screen-view active">
 
@@ -78,28 +78,62 @@
         </button>
       </div>
 
-      <!-- Dynamic Shift Duration Selector -->
+      <!-- Live Hazard Zone Entry / Exit Logger -->
+      <div class="zone-tracker-box">
+        <div class="card-header-flex">
+          <span class="card-title-text" style="font-size: 0.85rem;">
+            📍 H₂S Toxic Zone In/Out Tracker
+          </span>
+          <span id="zoneLiveBadge" class="tag-subtle" style="background: #ECFDF5; color: #059669; border-color: #A7F3D0;">
+            Outside Zone
+          </span>
+        </div>
+
+        <div id="zoneStatusIndicator" class="zone-status-indicator outside-zone">
+          <div>
+            <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-secondary);" id="zoneTimerLabel">Active Exposure Inside Zone:</div>
+            <div style="font-size: 1.15rem; font-weight: 900; font-family: var(--font-mono);" id="zoneTimerClock">0.0 hrs (Clean Air)</div>
+          </div>
+          <div style="text-align: right; font-size: 0.68rem; color: var(--text-secondary);" id="zoneTimestampMeta">
+            Last Exit: None
+          </div>
+        </div>
+
+        <button type="button" id="zoneToggleBtn" class="btn-zone-toggle btn-zone-enter" style="width: 100%;">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
+          <span id="zoneToggleBtnText">🟢 Check-In: Entering H₂S Zone</span>
+        </button>
+      </div>
+
+      <!-- Dual Duration Selector (Total Shift vs. Active Toxic Zone Duration) -->
       <div class="industrial-card">
         <div class="card-header-flex">
           <span class="card-title-text">
-            ⏱️ Shift Exposure Duration
+            ⏱️ Shift & Active Zone Durations
           </span>
-          <span class="tag-subtle" style="color: var(--color-amber); background: var(--color-amber-light); border-color: var(--color-amber-border);">TWA ppm</span>
+          <span class="tag-subtle" style="color: var(--color-blue); background: var(--color-blue-light); border-color: var(--color-blue-border);">Dual Telemetry</span>
         </div>
 
-        <!-- Segmented Mobile Dial -->
-        <div class="shift-segmented-dial">
-          <button type="button" class="shift-dial-btn" data-hours="1">1h</button>
-          <button type="button" class="shift-dial-btn" data-hours="2">2h</button>
-          <button type="button" class="shift-dial-btn" data-hours="4">4h</button>
-          <button type="button" class="shift-dial-btn active" data-hours="8">8h</button>
-          <button type="button" class="shift-dial-btn" data-hours="12">12h</button>
-        </div>
-
-        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-          <label for="shiftHoursInput" style="margin: 0; font-size: 0.72rem;">Custom Hours:</label>
+        <!-- 1. Total Shift Hours -->
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; border-bottom: 1px dashed var(--border-subtle); padding-bottom: 8px;">
+          <div>
+            <label for="shiftHoursInput" style="margin: 0; font-size: 0.72rem; display: block;">1. Total Shift Duration:</label>
+            <span style="font-size: 0.65rem; color: var(--text-muted);">For 8h OSHA/DGMS regulatory limit</span>
+          </div>
           <div style="display: flex; align-items: center; gap: 4px;">
-            <input type="number" id="shiftHoursInput" value="8.0" min="0.1" max="24.0" step="0.5" style="width: 75px; height: 38px; min-height: 38px; text-align: center; font-weight: 800; font-family: var(--font-mono); color: var(--color-amber);">
+            <input type="number" id="shiftHoursInput" value="8.0" min="0.1" max="24.0" step="0.5" style="width: 75px; height: 36px; min-height: 36px; text-align: center; font-weight: 800; font-family: var(--font-mono); color: var(--color-blue);">
+            <span style="font-size: 0.75rem; font-weight: 700; color: var(--text-secondary);">hrs</span>
+          </div>
+        </div>
+
+        <!-- 2. Active Zone Exposure Time -->
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+          <div>
+            <label for="activeZoneHoursInput" style="margin: 0; font-size: 0.72rem; display: block; color: var(--color-amber);">2. Active Zone Time (Inside Gas Area):</label>
+            <span style="font-size: 0.65rem; color: var(--text-muted);">For real task concentration & STEL ceiling</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 4px;">
+            <input type="number" id="activeZoneHoursInput" value="8.0" min="0.1" max="24.0" step="0.5" style="width: 75px; height: 36px; min-height: 36px; text-align: center; font-weight: 800; font-family: var(--font-mono); color: var(--color-amber);">
             <span style="font-size: 0.75rem; font-weight: 700; color: var(--text-secondary);">hrs</span>
           </div>
         </div>
@@ -121,7 +155,7 @@
               🔒 Scan Worker QR Pass to Unlock Camera
             </span>
             <span style="font-size: 0.72rem; color: var(--text-muted);">
-              Uses fixed card geometry for reliable patch sampling
+              Fixed-geometry multi-patch card alignment
             </span>
           </div>
           <input type="file" id="fileInput" accept="image/*" style="display: none;">
@@ -234,50 +268,72 @@
     </section>
 
     <!-- ==========================================
-         SCREEN 3: EXPOSURE ANALYTICS & TWA COCKPIT
+         SCREEN 3: TRI-METRIC EXPOSURE ANALYTICS & TWA COCKPIT
          ========================================== -->
     <section id="result-screen" class="screen-view">
       
-      <!-- Twin Exposure Cockpit Digital Meters -->
-      <div class="twin-metric-cockpit">
+      <!-- Tri-Metric Exposure Cockpit Digital Meters -->
+      <div class="tri-metric-cockpit">
         <!-- Metric 1: Cumulative Shift Dose -->
         <div class="exposure-gauge-card">
           <span class="gauge-label">Cumulative Dose</span>
           <span id="resultDoseVal" class="gauge-digital-val">--.-</span>
-          <span class="gauge-unit">ppm·hr</span>
+          <span class="gauge-unit">ppm·hr (Total Gas)</span>
         </div>
 
-        <!-- Metric 2: Time-Weighted Average Concentration -->
+        <!-- Metric 2: 8-Hour Full-Shift TWA -->
         <div class="exposure-gauge-card twa-focus">
-          <span class="gauge-label">TWA Concentration</span>
-          <span id="resultTwaVal" class="gauge-digital-val" style="color: var(--color-amber);">--.-</span>
-          <span class="gauge-unit" style="color: var(--text-secondary);">ppm (<span id="resultShiftHoursLabel">8.0</span>h)</span>
+          <span class="gauge-label">8h Shift TWA</span>
+          <span id="resultTwaVal" class="gauge-digital-val" style="color: var(--color-blue);">--.-</span>
+          <span class="gauge-unit" style="color: var(--text-secondary);">ppm (<span id="resultShiftHoursLabel">8.0</span>h shift)</span>
+        </div>
+
+        <!-- Metric 3: Active Task Zone Exposure Concentration -->
+        <div class="exposure-gauge-card zone-focus">
+          <span class="gauge-label">
+            <span>Active Hazard Zone Concentration</span>
+            <span class="tag-subtle" style="background: var(--color-amber-light); color: var(--color-amber); border-color: var(--color-amber-border); font-size: 0.62rem;">In-Zone Exposure</span>
+          </span>
+          <div style="display: flex; align-items: baseline; justify-content: space-between;">
+            <span id="resultZoneConcVal" class="gauge-digital-val" style="color: var(--color-amber);">--.-</span>
+            <span class="gauge-unit" style="color: var(--text-secondary);">ppm (inside gas zone for <strong id="resultActiveHoursLabel" style="color: var(--color-amber);">8.0</strong>h)</span>
+          </div>
         </div>
       </div>
 
-      <!-- Safety Classification Status Banner -->
-      <div id="resultStatusBadge" class="safety-status-banner status-safe">
-        🟢 Normal Exposure (< 10 ppm)
+      <!-- Dual Safety Classification Status Banners -->
+      <div class="dual-safety-grid">
+        <div id="resultStatusBadge" class="safety-status-banner status-safe">
+          🟢 8-Hour Full-Shift TWA: Normal Exposure (< 10 ppm)
+        </div>
+        <div id="resultZoneStatusBadge" class="safety-status-banner status-safe">
+          🟢 Active Task Zone Intensity: Safe (< 10 ppm)
+        </div>
       </div>
 
-      <!-- Interactive Dynamic Shift Hours Slider on Screen 3 -->
+      <!-- Interactive Duration Re-Evaluation Sliders on Screen 3 -->
       <div class="industrial-card" style="padding: 12px 14px;">
         <div class="card-header-flex" style="margin-bottom: 6px;">
           <span style="font-size: 0.78rem; font-weight: 800; color: var(--text-primary);">
-            ⏱️ Re-Evaluate TWA for Shift:
+            ⏱️ Re-Evaluate for Specific Active Exposure Time:
           </span>
+        </div>
+
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px;">
+          <label for="resultZoneHoursInput" style="margin: 0; font-size: 0.72rem; color: var(--color-amber);">Actual Time in Toxic Area:</label>
           <div style="display: flex; align-items: center; gap: 4px;">
-            <input type="number" id="resultShiftInput" value="8.0" min="0.1" max="24.0" step="0.5" style="width: 65px; height: 34px; min-height: 34px; padding: 4px; text-align: center; font-weight: 800; font-family: var(--font-mono); color: var(--color-amber);">
+            <input type="number" id="resultZoneHoursInput" value="8.0" min="0.1" max="24.0" step="0.5" style="width: 65px; height: 34px; min-height: 34px; padding: 4px; text-align: center; font-weight: 800; font-family: var(--font-mono); color: var(--color-amber);">
             <span style="font-size: 0.72rem; color: var(--text-secondary); font-weight: 700;">hrs</span>
           </div>
         </div>
 
+        <!-- Segmented Active Zone Hours Dial -->
         <div class="shift-segmented-dial">
-          <button type="button" class="shift-dial-btn result-shift-btn" data-hours="1">1h</button>
-          <button type="button" class="shift-dial-btn result-shift-btn" data-hours="2">2h</button>
-          <button type="button" class="shift-dial-btn result-shift-btn" data-hours="4">4h</button>
-          <button type="button" class="shift-dial-btn result-shift-btn active" data-hours="8">8h</button>
-          <button type="button" class="shift-dial-btn result-shift-btn" data-hours="12">12h</button>
+          <button type="button" class="shift-dial-btn result-zone-btn" data-hours="0.5">30m</button>
+          <button type="button" class="shift-dial-btn result-zone-btn" data-hours="1">1h</button>
+          <button type="button" class="shift-dial-btn result-zone-btn" data-hours="2">2h</button>
+          <button type="button" class="shift-dial-btn result-zone-btn" data-hours="4">4h</button>
+          <button type="button" class="shift-dial-btn result-zone-btn active" data-hours="8">8h</button>
         </div>
       </div>
 
@@ -361,9 +417,10 @@
             <tr>
               <th>Worker ID</th>
               <th>Date</th>
-              <th>Shift</th>
+              <th>Shift / Active</th>
               <th>Dose</th>
-              <th>TWA</th>
+              <th>8h TWA</th>
+              <th>Zone Conc</th>
               <th>Status</th>
             </tr>
           </thead>
@@ -511,8 +568,8 @@
 
   <script src="qrcode.min.js"></script>
   <script src="jsqr.js"></script>
-  <script src="calibration.js?v=12.0"></script>
-  <script src="script.js?v=12.0"></script>
+  <script src="calibration.js?v=13.0"></script>
+  <script src="script.js?v=13.0"></script>
 
   <!-- Service Worker Registration for 100% Offline Capability -->
   <script>
