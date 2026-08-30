@@ -1,7 +1,7 @@
 /* ==========================================================================
    H2S Industrial Dose Reader Pro — Native Mobile App Interface
    Mobile-First Material 3 / Modern iOS Aesthetic
-   Includes Biometric Face Recognition ID & Dual-Time Exposure Telemetry
+   Includes Real Multi-Worker Background Hazard Timers & Biometric Matching
    ========================================================================== */
 
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;600;700&display=swap');
@@ -444,6 +444,44 @@ html, body {
   font-size: 0.72rem;
   color: var(--text-secondary);
   font-weight: 600;
+}
+
+/* ==========================================================================
+   Multi-Worker Zone Telemetry Roster
+   ========================================================================== */
+.worker-roster-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.worker-roster-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-surface-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  font-size: 0.76rem;
+}
+
+.worker-roster-item.active-hazard {
+  background: #FEF2F2;
+  border-color: #FECACA;
+}
+
+.roster-worker-name {
+  font-weight: 800;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+}
+
+.roster-timer-text {
+  font-family: var(--font-mono);
+  font-weight: 800;
+  font-size: 0.78rem;
 }
 
 /* ==========================================================================
@@ -1086,7 +1124,7 @@ input[type="date"]:focus {
   justify-content: center;
 }
 
-#faceVideoFeed {
+#faceVideoFeed, #enrollVideoFeed {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -1154,40 +1192,4 @@ input[type="date"]:focus {
   width: 0%;
   background: linear-gradient(90deg, #38BDF8, #059669);
   transition: width 0.2s ease;
-}
-
-.qr-live-viewport {
-  position: relative;
-  width: 100%;
-  height: 220px;
-  margin: 6px auto;
-  background: #000000;
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-  border: 1px solid var(--border-medium);
-}
-
-#qrVideoFeed {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.qr-scan-reticle {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.reticle-box {
-  width: 160px;
-  height: 160px;
-  border: 2px solid #FFFFFF;
-  border-radius: 12px;
-  box-shadow: 0 0 0 1000px rgba(0, 0, 0, 0.5);
 }

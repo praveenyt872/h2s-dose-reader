@@ -1,6 +1,6 @@
 /**
  * H2S Dose Reader Pro — Industrial Safety & Telemetry Engine
- * Zero-Mean Normalized Facial Biometric Matcher (Individual Identity Verification)
+ * Multi-Worker Background Hazard Session Tracker + Zero-Mean Facial Matching
  * Dual-Time Exposure Telemetry (Active Hazard Zone Time vs Full Shift 8h TWA)
  */
 
@@ -16,11 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
     workerId: null,
     shiftDate: new Date().toISOString().split('T')[0],
     shiftHours: 8.0,       // Full daily shift duration (for 8-hr regulatory TWA)
-    activeZoneHours: 8.0,  // Actual active time inside the toxic H2S area
-    isInsideZone: false,
-    zoneEntryTimestamp: null,
-    zoneElapsedSeconds: 0,
-    zoneTimerInterval: null,
+    activeZoneHours: 8.0,  // Active time inside toxic H2S area for current worker
     faceVerified: false,
     verifiedWorker: null,
     latestResult: null,
@@ -35,12 +31,14 @@ document.addEventListener('DOMContentLoaded', () => {
       refStrip: null,
       exposedStrip: null
     },
-    // Real Enrolled Face Database stored offline
+    // Real Enrolled Face Database
     enrolledFaces: JSON.parse(localStorage.getItem('h2s_enrolled_faces') || '[]'),
+    // Multi-Worker Independent Hazard Zone Sessions (persisted in localStorage)
+    workerSessions: JSON.parse(localStorage.getItem('h2s_worker_sessions') || '{}'),
     logs: JSON.parse(localStorage.getItem('h2s_dosimeter_logs') || '[]')
   };
 
-  // Populate realistic starter compliance history if empty
+  // Starter compliance history
   if (state.logs.length === 0) {
     state.logs = [
       { id: Date.now() - 86400000 * 2, workerId: 'EMP-101', shiftDate: '2026-08-28', shiftHours: 8.0, activeZoneHours: 8.0, dose: '22.4', doseNum: 22.4, twaPpm: '2.80', twaNum: 2.80, zoneConcPpm: '2.80', zoneConcNum: 2.80, status: 'Normal Exposure (< 10 ppm)', statusClass: 'status-safe', scannedAt: '2026-08-28 17:30' },
@@ -48,6 +46,48 @@ document.addEventListener('DOMContentLoaded', () => {
       { id: Date.now() - 86400000 * 3, workerId: 'EMP-102', shiftDate: '2026-08-27', shiftHours: 8.0, activeZoneHours: 8.0, dose: '92.0', doseNum: 92.0, twaPpm: '11.50', twaNum: 11.50, zoneConcPpm: '11.50', zoneConcNum: 11.50, status: 'Elevated — Monitor', statusClass: 'status-warn', scannedAt: '2026-08-27 18:00' }
     ];
     localStorage.setItem('h2s_dosimeter_logs', JSON.stringify(state.logs));
+  }
+
+  // ==========================================
+  // MULTI-WORKER INDEPENDENT SESSION MANAGER
+  // ==========================================
+  function getWorkerSession(workerId, workerName) {
+    const idKey = workerId.toUpperCase();
+    if (!state.workerSessions[idKey]) {
+      state.workerSessions[idKey] = {
+        workerId: workerId,
+        name: workerName || workerId,
+        isInsideZone: false,
+        zoneEntryTimestamp: null,
+        accumulatedSeconds: 0,
+        lastExitTime: 'None'
+      };
+      localStorage.setItem('h2s_worker_sessions', JSON.stringify(state.workerSessions));
+    }
+    return state.workerSessions[idKey];
+  }
+
+  function saveWorkerSession(workerId, sessionData) {
+    const idKey = workerId.toUpperCase();
+    state.workerSessions[idKey] = sessionData;
+    localStorage.setItem('h2s_worker_sessions', JSON.stringify(state.workerSessions));
+  }
+
+  function getWorkerTotalZoneSeconds(session) {
+    if (!session) return 0;
+    let total = session.accumulatedSeconds || 0;
+    if (session.isInsideZone && session.zoneEntryTimestamp) {
+      const elapsedSinceEntry = Math.max(0, Math.floor((Date.now() - session.zoneEntryTimestamp) / 1000));
+      total += elapsedSinceEntry;
+    }
+    return total;
+  }
+
+  function formatDuration(totalSeconds) {
+    const hrs = Math.floor(totalSeconds / 3600);
+    const mins = Math.floor((totalSeconds % 3600) / 60);
+    const secs = totalSeconds % 60;
+    return `${String(hrs).padStart(2, '0')}h ${String(mins).padStart(2, '0')}m ${String(secs).padStart(2, '0')}s`;
   }
 
   // ==========================================
@@ -106,7 +146,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    // 2. Compute Mean & Subtract Mean (Zero-Mean Normalization removes overall room lighting)
+    // 2. Subtract Mean (Cancels room lighting bias)
     const mean = sumLum / rawLum.length;
     const zeroMeanLum = [];
     let variance = 0;
@@ -120,7 +160,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const stdDev = Math.sqrt(variance / rawLum.length) || 1;
     const normalizedLum = zeroMeanLum.map(val => val / stdDev);
 
-    // 3. Compute 4x4 Multi-Zone Gradient Directional Filters (Eyebrows, Nose, Mouth contrasts)
+    // 3. Compute 4x4 Multi-Zone Gradient Directional Filters
     const gradGrid = 4;
     const gBlock = normSize / gradGrid;
     const gradientFeatures = [];
@@ -156,10 +196,8 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    // 4. Combine into 64 (spatial) + 32 (gradient) = 96-D Differential Facial Signature
     const fullVector = normalizedLum.concat(gradientFeatures);
 
-    // Normalize full vector to unit magnitude
     let norm = 0;
     for (let i = 0; i < fullVector.length; i++) norm += fullVector[i] * fullVector[i];
     norm = Math.sqrt(norm) || 1;
@@ -175,8 +213,6 @@ document.addEventListener('DOMContentLoaded', () => {
     for (let i = 0; i < vecA.length; i++) {
       dot += vecA[i] * vecB[i];
     }
-    // Dot product of zero-mean unit vectors is Pearson correlation coefficient r [-1, +1]
-    // Map r in [0, 1] to percentage [0%, 100%]
     return Math.max(0, Math.min(100, dot * 100));
   }
 
@@ -281,6 +317,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const startLiveFaceScanBtn = document.getElementById('startLiveFaceScanBtn');
   const clearEnrolledFacesBtn = document.getElementById('clearEnrolledFacesBtn');
 
+  const zoneTrackerCardTitle = document.getElementById('zoneTrackerCardTitle');
   const shiftHoursInput = document.getElementById('shiftHoursInput');
   const activeZoneHoursInput = document.getElementById('activeZoneHoursInput');
   const zoneLiveBadge = document.getElementById('zoneLiveBadge');
@@ -290,6 +327,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const zoneTimestampMeta = document.getElementById('zoneTimestampMeta');
   const zoneToggleBtn = document.getElementById('zoneToggleBtn');
   const zoneToggleBtnText = document.getElementById('zoneToggleBtnText');
+  const workerRosterList = document.getElementById('workerRosterList');
 
   const fileInput = document.getElementById('fileInput');
   const demoSampleBtn = document.getElementById('demoSampleBtn');
@@ -368,6 +406,117 @@ document.addEventListener('DOMContentLoaded', () => {
   updateRoleUI();
 
   // ==========================================
+  // REAL-TIME GLOBAL BACKGROUND MULTI-WORKER TICKER
+  // ==========================================
+  setInterval(runGlobalWorkerSessionTicker, 1000);
+
+  function runGlobalWorkerSessionTicker() {
+    // 1. Update the currently logged-in worker's personal card (if authenticated)
+    if (state.faceVerified && state.activeWorkerId) {
+      const activeSession = getWorkerSession(state.activeWorkerId, state.activeWorkerName);
+      const totalSecs = getWorkerTotalZoneSeconds(activeSession);
+      const formattedClock = formatDuration(totalSecs);
+
+      if (zoneTimerClock) {
+        zoneTimerClock.textContent = activeSession.isInsideZone 
+          ? `${formattedClock} (Inside Zone)` 
+          : `${formattedClock} (Clean Air)`;
+      }
+
+      const activeHours = Math.max(0.1, totalSecs / 3600);
+      state.activeZoneHours = activeHours;
+      if (activeZoneHoursInput && document.activeElement !== activeZoneHoursInput) {
+        activeZoneHoursInput.value = activeHours.toFixed(1);
+      }
+      if (resultZoneHoursInput && document.activeElement !== resultZoneHoursInput) {
+        resultZoneHoursInput.value = activeHours.toFixed(1);
+      }
+
+      if (zoneLiveBadge) {
+        if (activeSession.isInsideZone) {
+          zoneLiveBadge.textContent = 'Inside H₂S Zone';
+          zoneLiveBadge.style.background = '#FEF2F2';
+          zoneLiveBadge.style.color = '#DC2626';
+          zoneLiveBadge.style.borderColor = '#FECACA';
+        } else {
+          zoneLiveBadge.textContent = 'Outside Zone';
+          zoneLiveBadge.style.background = '#ECFDF5';
+          zoneLiveBadge.style.color = '#059669';
+          zoneLiveBadge.style.borderColor = '#A7F3D0';
+        }
+      }
+
+      if (zoneStatusIndicator) {
+        zoneStatusIndicator.className = activeSession.isInsideZone 
+          ? 'zone-status-indicator inside-zone' 
+          : 'zone-status-indicator outside-zone';
+      }
+
+      if (zoneToggleBtn) {
+        zoneToggleBtn.className = activeSession.isInsideZone 
+          ? 'btn-zone-toggle btn-zone-exit' 
+          : 'btn-zone-toggle btn-zone-enter';
+      }
+
+      if (zoneToggleBtnText) {
+        zoneToggleBtnText.textContent = activeSession.isInsideZone 
+          ? `🔴 Check-Out ${state.activeWorkerName}: Exited to Clean Air` 
+          : `🟢 Check-In ${state.activeWorkerName}: Entering H₂S Zone`;
+      }
+
+      if (zoneTimestampMeta) {
+        zoneTimestampMeta.textContent = activeSession.lastExitTime !== 'None' 
+          ? `Last Exit: ${activeSession.lastExitTime}` 
+          : 'Last Exit: None';
+      }
+    }
+
+    // 2. Render the Live Fleet Roster for all enrolled workers
+    renderMultiWorkerRoster();
+  }
+
+  function renderMultiWorkerRoster() {
+    if (!workerRosterList) return;
+
+    if (state.enrolledFaces.length === 0) {
+      workerRosterList.innerHTML = `
+        <div style="font-size: 0.72rem; color: var(--text-muted); text-align: center; padding: 8px;">
+          No workers enrolled yet. Enroll faces above to track background hazard sessions.
+        </div>
+      `;
+      return;
+    }
+
+    let html = '';
+    state.enrolledFaces.forEach(worker => {
+      const session = getWorkerSession(worker.workerId, worker.name);
+      const totalSecs = getWorkerTotalZoneSeconds(session);
+      const isInside = session.isInsideZone;
+      const isCurrent = state.faceVerified && state.activeWorkerId === worker.workerId;
+
+      html += `
+        <div class="worker-roster-item ${isInside ? 'active-hazard' : ''}">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="font-size: 0.95rem;">${isInside ? '🔴' : '🟢'}</span>
+            <div>
+              <div class="roster-worker-name">${escapeHtml(worker.name || worker.workerId)} <span style="font-size: 0.65rem; color: var(--text-muted);">(${escapeHtml(worker.workerId)})</span> ${isCurrent ? '<strong style="color:var(--color-blue); font-size:0.65rem;">[YOU]</strong>' : ''}</div>
+              <div style="font-size: 0.65rem; color: ${isInside ? 'var(--color-ruby)' : 'var(--text-secondary)'}; font-weight: 700;">
+                ${isInside ? 'Inside H₂S Danger Zone' : 'Clean Air'}
+              </div>
+            </div>
+          </div>
+          <div style="text-align: right;">
+            <div class="roster-timer-text" style="color: ${isInside ? 'var(--color-ruby)' : 'var(--color-blue)'};">${formatDuration(totalSecs)}</div>
+            <div style="font-size: 0.62rem; color: var(--text-muted);">Active Time</div>
+          </div>
+        </div>
+      `;
+    });
+
+    workerRosterList.innerHTML = html;
+  }
+
+  // ==========================================
   // 2. STEP 1: ENROLL / REGISTER REAL WORKER FACE
   // ==========================================
   window.openFaceEnrollmentModal = function() {
@@ -410,14 +559,12 @@ document.addEventListener('DOMContentLoaded', () => {
       const workerId = (enrollWorkerIdInput ? enrollWorkerIdInput.value.trim() : '') || 'EMP-101';
       const workerName = (enrollWorkerNameInput ? enrollWorkerNameInput.value.trim() : '') || 'Worker';
 
-      // 1. Extract Real Differential Face Feature Vector
       const featureVector = extractFaceBiometricVector(enrollVideoFeed);
       if (!featureVector) {
         alert('Could not detect face in frame. Please center your face.');
         return;
       }
 
-      // 2. Capture Snapshot Thumbnail
       enrollCaptureCanvas.width = 160;
       enrollCaptureCanvas.height = 160;
       const eCtx = enrollCaptureCanvas.getContext('2d');
@@ -427,7 +574,6 @@ document.addEventListener('DOMContentLoaded', () => {
       eCtx.drawImage(enrollVideoFeed, sx, sy, minD, minD, 0, 0, 160, 160);
       const photoSnapshotUrl = enrollCaptureCanvas.toDataURL('image/jpeg', 0.85);
 
-      // 3. Save specific individual profile to offline database
       const newEnrolledFace = {
         workerId,
         name: workerName,
@@ -444,25 +590,31 @@ document.addEventListener('DOMContentLoaded', () => {
         state.enrolledFaces.push(newEnrolledFace);
       }
 
+      // Initialize their independent session
+      getWorkerSession(workerId, workerName);
+
       localStorage.setItem('h2s_enrolled_faces', JSON.stringify(state.enrolledFaces));
       updateEnrolledBadgeUI();
+      renderMultiWorkerRoster();
 
       stopEnrollCamera();
 
-      alert(`✅ FACE ENROLLED FOR ${workerName} (${workerId})!\n\nBiometric template stored in offline DB.\nTotal enrolled workers: ${state.enrolledFaces.length}.\n\nNow tap "2. Scan Face to Verify" to authenticate!`);
+      alert(`✅ WORKER ENROLLED: ${workerName} (${workerId})!\n\nBiometric template stored in offline DB.\nTotal enrolled workers: ${state.enrolledFaces.length}.\n\nTap "2. Scan Face to Verify" to login!`);
     });
   }
 
   if (clearEnrolledFacesBtn) {
     clearEnrolledFacesBtn.addEventListener('click', () => {
-      if (confirm('Clear all enrolled worker faces from database?')) {
+      if (confirm('Clear all enrolled worker faces and hazard timers from database?')) {
         state.enrolledFaces = [];
+        state.workerSessions = {};
         localStorage.removeItem('h2s_enrolled_faces');
+        localStorage.removeItem('h2s_worker_sessions');
         state.faceVerified = false;
         state.activeWorkerId = null;
         state.activeWorkerName = null;
         if (displayWorkerName) displayWorkerName.textContent = 'Awaiting Enrolled Face';
-        if (displayWorkerSub) displayWorkerSub.textContent = 'First enroll face, then scan same person to unlock';
+        if (displayWorkerSub) displayWorkerSub.textContent = 'Enroll worker face, then scan same person to unlock';
         if (workerAvatarBox) {
           workerAvatarBox.textContent = '👤';
           workerAvatarBox.className = 'id-avatar-box';
@@ -478,6 +630,7 @@ document.addEventListener('DOMContentLoaded', () => {
           if (stripDropzoneText) stripDropzoneText.textContent = '🔒 Verify Enrolled Worker Face to Unlock Camera';
         }
         updateEnrolledBadgeUI();
+        renderMultiWorkerRoster();
         updateRoleUI();
         alert('Database cleared.');
       }
@@ -493,7 +646,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function startLiveFaceVerification() {
     if (state.enrolledFaces.length === 0) {
-      alert('⚠️ NO FACES ENROLLED IN DATABASE!\n\nPlease tap "1. Enroll / Capture Face to Database" first to register your face.');
+      alert('⚠️ NO FACES ENROLLED IN DATABASE!\n\nPlease tap "1. Enroll Worker Face to Database" first to register.');
       window.openFaceEnrollmentModal();
       return;
     }
@@ -539,14 +692,12 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    // 1. Extract Live Zero-Mean Differential Feature Vector
     const liveVector = extractFaceBiometricVector(faceVideoFeed);
     if (!liveVector) {
       alert('Face not detected clearly. Please center your face inside the oval.');
       return;
     }
 
-    // 2. Compare against all enrolled faces in offline database
     let highestScore = -100;
     let matchedWorker = null;
 
@@ -561,13 +712,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (faceConfidenceVal) faceConfidenceVal.textContent = `${highestScore.toFixed(1)}% Match`;
     if (faceConfidenceFill) faceConfidenceFill.style.width = `${Math.max(0, Math.min(100, highestScore))}%`;
 
-    // 3. Strict Threshold for Zero-Mean Correlation (55% correlation required)
     const STRICT_THRESHOLD = 55.0;
 
     if (highestScore >= STRICT_THRESHOLD && matchedWorker) {
-      // ✅ SUCCESSFUL AUTHENTICATION OF ENROLLED PERSON
+      // ✅ SUCCESSFUL AUTHENTICATION OF SPECIFIC INDIVIDUAL
       faceConfidenceFill.style.background = '#059669';
-      if (faceScanStatusMsg) faceScanStatusMsg.textContent = `✅ Match: ${matchedWorker.name} (${matchedWorker.workerId})`;
+      if (faceScanStatusMsg) faceScanStatusMsg.textContent = `✅ Authenticated: ${matchedWorker.name} (${matchedWorker.workerId})`;
 
       setTimeout(() => {
         stopFaceVerificationCamera();
@@ -579,10 +729,17 @@ document.addEventListener('DOMContentLoaded', () => {
         state.activeWorkerName = matchedWorker.name;
         state.shiftHours = parseFloat(matchedWorker.shiftHours) || 8.0;
 
+        // Fetch this specific worker's persistent background timer session
+        const session = getWorkerSession(matchedWorker.workerId, matchedWorker.name);
+        const totalSecs = getWorkerTotalZoneSeconds(session);
+        state.activeZoneHours = Math.max(0.1, totalSecs / 3600);
+
         updateRoleUI();
 
         if (displayWorkerName) displayWorkerName.textContent = `${matchedWorker.workerId} • ${matchedWorker.name}`;
-        if (displayWorkerSub) displayWorkerSub.textContent = `✓ Biometric Match (${highestScore.toFixed(1)}%) • Profile Unlocked`;
+        if (displayWorkerSub) displayWorkerSub.textContent = `✓ Active User Session • Face Match: ${highestScore.toFixed(1)}%`;
+        if (zoneTrackerCardTitle) zoneTrackerCardTitle.textContent = `📍 Personal Zone Tracker: ${matchedWorker.name} (${matchedWorker.workerId})`;
+
         if (workerAvatarBox) {
           if (matchedWorker.avatarUrl) {
             workerAvatarBox.innerHTML = `<img src="${matchedWorker.avatarUrl}">`;
@@ -603,10 +760,11 @@ document.addEventListener('DOMContentLoaded', () => {
           if (stripDropzoneText) stripDropzoneText.textContent = '📸 Tap to open alignment camera for card photo';
         }
 
-        alert(`✅ BIOMETRIC MATCH CONFIRMED!\n\nAuthenticated: ${matchedWorker.name} (${matchedWorker.workerId})\nMatch Score: ${highestScore.toFixed(1)}%\n\nChemical Test Strip Bay is now UNLOCKED for ${matchedWorker.name}.`);
+        runGlobalWorkerSessionTicker();
+
+        alert(`✅ AUTHENTICATION CONFIRMED!\n\nWelcome: ${matchedWorker.name} (${matchedWorker.workerId})\nMatch Score: ${highestScore.toFixed(1)}%\nCurrent Active H2S Hazard Time: ${formatDuration(totalSecs)}\nStatus: ${session.isInsideZone ? '🔴 Running in Hazard Area' : '🟢 In Clean Air'}`);
       }, 400);
     } else {
-      // ❌ REJECTED - STRANGER / UNRECOGNIZED FACE
       faceConfidenceFill.style.background = '#DC2626';
       if (faceScanStatusMsg) {
         faceScanStatusMsg.textContent = `❌ Access Denied: Match ${highestScore.toFixed(1)}% (< 55% Threshold)`;
@@ -617,90 +775,43 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ==========================================
-  // 4. LIVE ZONE IN/OUT LOGGER & DUAL-TIME TELEMETRY
+  // 4. MULTI-WORKER ZONE IN/OUT CHECK-IN TOGGLE
   // ==========================================
   if (zoneToggleBtn) {
-    zoneToggleBtn.addEventListener('click', toggleZoneEntryExit);
+    zoneToggleBtn.addEventListener('click', toggleCurrentWorkerZoneEntryExit);
   }
 
-  function toggleZoneEntryExit() {
-    state.isInsideZone = !state.isInsideZone;
+  function toggleCurrentWorkerZoneEntryExit() {
+    if (!state.faceVerified || !state.activeWorkerId) {
+      alert('⚠️ Please scan your Face ID first to check into or out of the hazard zone!');
+      startLiveFaceVerification();
+      return;
+    }
 
-    if (state.isInsideZone) {
-      state.zoneEntryTimestamp = new Date();
-      if (zoneLiveBadge) {
-        zoneLiveBadge.textContent = 'Inside H₂S Zone';
-        zoneLiveBadge.style.background = '#FEF2F2';
-        zoneLiveBadge.style.color = '#DC2626';
-        zoneLiveBadge.style.borderColor = '#FECACA';
-      }
-      if (zoneStatusIndicator) {
-        zoneStatusIndicator.className = 'zone-status-indicator inside-zone';
-      }
-      if (zoneTimerLabel) {
-        zoneTimerLabel.textContent = '🔴 Active Exposure Timer (Running):';
-      }
-      if (zoneTimestampMeta) {
-        zoneTimestampMeta.textContent = `Entered: ${state.zoneEntryTimestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
-      }
-      if (zoneToggleBtn) {
-        zoneToggleBtn.className = 'btn-zone-toggle btn-zone-exit';
-      }
-      if (zoneToggleBtnText) {
-        zoneToggleBtnText.textContent = '🔴 Check-Out: Exited to Clean Air';
-      }
+    const session = getWorkerSession(state.activeWorkerId, state.activeWorkerName);
+    session.isInsideZone = !session.isInsideZone;
 
-      if (state.zoneTimerInterval) clearInterval(state.zoneTimerInterval);
-      state.zoneTimerInterval = setInterval(updateZoneClock, 1000);
+    if (session.isInsideZone) {
+      // Worker starts active zone exposure
+      session.zoneEntryTimestamp = Date.now();
+      saveWorkerSession(state.activeWorkerId, session);
+      alert(`🔴 CHECK-IN RECORDED!\nWorker: ${state.activeWorkerName} (${state.activeWorkerId})\nStatus: Entered H₂S Hazard Area.\nTimer is now actively running in the background.`);
     } else {
-      if (state.zoneTimerInterval) {
-        clearInterval(state.zoneTimerInterval);
-        state.zoneTimerInterval = null;
-      }
+      // Worker leaves to clean air
+      const elapsedSinceEntry = session.zoneEntryTimestamp ? Math.max(0, Math.floor((Date.now() - session.zoneEntryTimestamp) / 1000)) : 0;
+      session.accumulatedSeconds = (session.accumulatedSeconds || 0) + elapsedSinceEntry;
+      session.zoneEntryTimestamp = null;
+      session.lastExitTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      saveWorkerSession(state.activeWorkerId, session);
 
-      const exitTime = new Date();
-      if (zoneLiveBadge) {
-        zoneLiveBadge.textContent = 'Outside Zone';
-        zoneLiveBadge.style.background = '#ECFDF5';
-        zoneLiveBadge.style.color = '#059669';
-        zoneLiveBadge.style.borderColor = '#A7F3D0';
-      }
-      if (zoneStatusIndicator) {
-        zoneStatusIndicator.className = 'zone-status-indicator outside-zone';
-      }
-      if (zoneTimerLabel) {
-        zoneTimerLabel.textContent = '🟢 Total Logged Toxic Area Time:';
-      }
-      if (zoneTimestampMeta) {
-        zoneTimestampMeta.textContent = `Exited: ${exitTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-      }
-      if (zoneToggleBtn) {
-        zoneToggleBtn.className = 'btn-zone-toggle btn-zone-enter';
-      }
-      if (zoneToggleBtnText) {
-        zoneToggleBtnText.textContent = '🟢 Check-In: Entering H₂S Zone';
-      }
-
-      const computedHours = Math.max(0.1, (state.zoneElapsedSeconds / 3600));
+      const totalSecs = session.accumulatedSeconds;
+      const computedHours = Math.max(0.1, totalSecs / 3600);
       syncActiveZoneHoursUI(computedHours);
-    }
-  }
 
-  function updateZoneClock() {
-    state.zoneElapsedSeconds++;
-    const hrs = Math.floor(state.zoneElapsedSeconds / 3600);
-    const mins = Math.floor((state.zoneElapsedSeconds % 3600) / 60);
-    const secs = state.zoneElapsedSeconds % 60;
-
-    const formatted = `${String(hrs).padStart(2, '0')}h ${String(mins).padStart(2, '0')}m ${String(secs).padStart(2, '0')}s`;
-    if (zoneTimerClock) {
-      zoneTimerClock.textContent = formatted;
+      alert(`🟢 CHECK-OUT RECORDED!\nWorker: ${state.activeWorkerName} (${state.activeWorkerId})\nStatus: Exited to Clean Air.\nTotal Active Exposure Today: ${formatDuration(totalSecs)} (${computedHours.toFixed(2)} hrs).`);
     }
 
-    const computedHours = Math.max(0.1, (state.zoneElapsedSeconds / 3600));
-    if (activeZoneHoursInput) activeZoneHoursInput.value = computedHours.toFixed(1);
-    if (resultZoneHoursInput) resultZoneHoursInput.value = computedHours.toFixed(1);
-    state.activeZoneHours = computedHours;
+    runGlobalWorkerSessionTicker();
   }
 
   function syncActiveZoneHoursUI(hours) {
@@ -1360,7 +1471,7 @@ document.addEventListener('DOMContentLoaded', () => {
       status = '🔴 Danger — STEL / Action Required';
       statusClass = 'status-danger';
     } else if (dose >= DOSE_THRESHOLD_LOW || twaPpm >= TWA_THRESHOLD_LOW || zoneConcPpm >= 10.0) {
-      status = '🟡 Elevated — Monitor Exposure (10-15 ppm)';
+      status = '🟡 Elevated — Monitor in Zone';
       statusClass = 'status-warn';
     }
 

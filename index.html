@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>H2S Industrial Exposure Dosimeter & Biometric Telemetry</title>
+  <title>H2S Industrial Exposure Dosimeter & Multi-Worker Telemetry</title>
 
   <!-- PWA & Native Offline APK Meta Configuration -->
   <link rel="manifest" href="manifest.json">
@@ -14,7 +14,7 @@
   <link rel="apple-touch-icon" href="icon-192.png">
 
   <!-- Mobile App Interface Stylesheet with Cache-Buster -->
-  <link rel="stylesheet" href="style.css?v=15.0">
+  <link rel="stylesheet" href="style.css?v=16.0">
 </head>
 <body>
 
@@ -52,7 +52,7 @@
     </header>
 
     <!-- ==========================================
-         SCREEN 1: INGESTION, BIOMETRIC PASS & ZONE LOGGER
+         SCREEN 1: INGESTION, BIOMETRIC PASS & MULTI-WORKER TIMERS
          ========================================== -->
     <main id="scan-screen" class="screen-view active">
 
@@ -63,7 +63,7 @@
             <div id="workerAvatarBox" class="id-avatar-box">👤</div>
             <div class="id-profile-text">
               <div class="id-worker-id" id="displayWorkerName">Awaiting Enrolled Face</div>
-              <div class="id-meta-sub" id="displayWorkerSub">First enroll face, then scan same person to unlock</div>
+              <div class="id-meta-sub" id="displayWorkerSub">Enroll worker face, then scan same person to unlock</div>
             </div>
           </div>
           <span id="stripLockStatusTag" class="tag-subtle" style="background: var(--color-amber-light); color: var(--color-amber); border-color: var(--color-amber-border);">
@@ -76,7 +76,7 @@
           <!-- 1. Enroll / Register Face -->
           <button type="button" id="openEnrollFaceBtn" class="btn-industrial btn-glass" style="width: 100%; border-color: var(--color-blue-border); font-size: 0.85rem;">
             <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="12" cy="8" r="5"></circle><path d="M20 21a8 8 0 1 0-16 0"></path><line x1="12" y1="11" x2="12" y2="17"></line><line x1="9" y1="14" x2="15" y2="14"></line></svg>
-            📸 1. Enroll / Capture Face to Database
+            📸 1. Enroll Worker Face to Database
           </button>
 
           <!-- 2. Scan & Authenticate Same Person -->
@@ -97,11 +97,11 @@
         </div>
       </div>
 
-      <!-- Live Hazard Zone Entry / Exit Logger -->
+      <!-- Live Hazard Zone Entry / Exit Logger for Logged-In Worker -->
       <div class="zone-tracker-box">
         <div class="card-header-flex">
-          <span class="card-title-text" style="font-size: 0.85rem;">
-            📍 H₂S Toxic Zone In/Out Tracker
+          <span class="card-title-text" style="font-size: 0.85rem;" id="zoneTrackerCardTitle">
+            📍 Personal H₂S Zone In/Out Tracker
           </span>
           <span id="zoneLiveBadge" class="tag-subtle" style="background: #ECFDF5; color: #059669; border-color: #A7F3D0;">
             Outside Zone
@@ -111,7 +111,7 @@
         <div id="zoneStatusIndicator" class="zone-status-indicator outside-zone">
           <div>
             <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-secondary);" id="zoneTimerLabel">Active Exposure Inside Zone:</div>
-            <div style="font-size: 1.15rem; font-weight: 900; font-family: var(--font-mono);" id="zoneTimerClock">0.0 hrs (Clean Air)</div>
+            <div style="font-size: 1.15rem; font-weight: 900; font-family: var(--font-mono);" id="zoneTimerClock">00h 00m 00s (Clean Air)</div>
           </div>
           <div style="text-align: right; font-size: 0.68rem; color: var(--text-secondary);" id="zoneTimestampMeta">
             Last Exit: None
@@ -122,6 +122,21 @@
           <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
           <span id="zoneToggleBtnText">🟢 Check-In: Entering H₂S Zone</span>
         </button>
+      </div>
+
+      <!-- Multi-Worker Fleet Hazard Telemetry Roster -->
+      <div class="industrial-card" id="multiWorkerRosterCard" style="padding: 12px 14px;">
+        <div class="card-header-flex" style="margin-bottom: 2px;">
+          <span class="card-title-text" style="font-size: 0.82rem;">
+            👷 All Workers Hazard Status (Running in Background)
+          </span>
+          <span class="tag-subtle" style="background: var(--color-blue-light); color: var(--color-blue); border-color: var(--color-blue-border); font-size: 0.62rem;">Live Fleet</span>
+        </div>
+        <div id="workerRosterList" class="worker-roster-list">
+          <div style="font-size: 0.72rem; color: var(--text-muted); text-align: center; padding: 10px;">
+            Enroll worker faces above to track multi-worker hazard sessions.
+          </div>
+        </div>
       </div>
 
       <!-- Dual Duration Selector (Total Shift vs. Active Toxic Zone Duration) -->
@@ -149,7 +164,7 @@
         <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
           <div>
             <label for="activeZoneHoursInput" style="margin: 0; font-size: 0.72rem; display: block; color: var(--color-amber);">2. Active Zone Time (Inside Gas Area):</label>
-            <span style="font-size: 0.65rem; color: var(--text-muted);">For real task concentration & STEL ceiling</span>
+            <span style="font-size: 0.65rem; color: var(--text-muted);">Automatically computed from zone stopwatch</span>
           </div>
           <div style="display: flex; align-items: center; gap: 4px;">
             <input type="number" id="activeZoneHoursInput" value="8.0" min="0.1" max="24.0" step="0.5" style="width: 75px; height: 36px; min-height: 36px; text-align: center; font-weight: 800; font-family: var(--font-mono); color: var(--color-amber);">
@@ -534,7 +549,7 @@
       </div>
 
       <p style="font-size: 0.74rem; color: var(--text-secondary);">
-        Position your face in frame and tap "Capture & Save" to enroll into the offline biometric database.
+        Position face in frame, enter worker details and tap "Capture & Save" to enroll into offline DB.
       </p>
 
       <div class="form-grid">
@@ -593,8 +608,8 @@
     </div>
   </div>
 
-  <script src="calibration.js?v=15.0"></script>
-  <script src="script.js?v=15.0"></script>
+  <script src="calibration.js?v=16.0"></script>
+  <script src="script.js?v=16.0"></script>
 
   <!-- Service Worker Registration for 100% Offline Capability -->
   <script>
