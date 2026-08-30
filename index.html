@@ -6,7 +6,7 @@
   <title>H2S Industrial Exposure Dosimeter & TWA Analytics</title>
 
   <!-- Clean White Light Theme Stylesheet with Cache-Buster -->
-  <link rel="stylesheet" href="style.css?v=10.0">
+  <link rel="stylesheet" href="style.css?v=11.0">
 </head>
 <body>
 
@@ -128,7 +128,7 @@
           <span class="card-title-text">
             📸 Chemical Test Strip Optical Ingestion
           </span>
-          <span class="tag-subtle">Alignment Overlay</span>
+          <span class="tag-subtle">Horizontal Multi-Patch</span>
         </div>
 
         <div id="stripScanControls" class="strip-ingestion-bay locked">
@@ -138,7 +138,7 @@
               🔒 Scan Worker QR Badge First to Unlock Strip Camera
             </span>
             <span style="font-size: 0.75rem; color: var(--text-muted);">
-              Uses fixed 20mm x 40mm card geometry for 100% reliable patch sampling
+              Supports Top (White/Grey/Red/Ref) & Bottom (Exposed Strip) Card Geometry
             </span>
           </div>
           <input type="file" id="fileInput" accept="image/*" style="display: none;">
@@ -155,13 +155,13 @@
          ========================================== -->
     <section id="calibrate-screen" class="screen-view">
       
-      <!-- Phase A: Live Camera with 1:2 Card Alignment Overlay -->
+      <!-- Phase A: Live Camera with Horizontal Multi-Patch Alignment Overlay -->
       <div id="liveAlignmentSection" style="display: flex; flex-direction: column; gap: 14px; width: 100%;">
         <div class="camera-alignment-container">
           <video id="stripVideoFeed" autoplay playsinline muted></video>
           <canvas id="alignmentOverlayCanvas"></canvas>
           <div class="alignment-guideline-bar">
-            <span>📐 Align 20mm × 40mm card to the outline frame</span>
+            <span>📐 Align horizontal card to the outline frame</span>
           </div>
         </div>
 
@@ -186,12 +186,12 @@
           <canvas id="photoCanvas"></canvas>
         </div>
 
-        <!-- 3-Channel Optical Patch Readout Cards -->
-        <div class="calibration-readout-grid">
+        <!-- 5-Channel Optical Patch Readout Cards -->
+        <div class="calibration-readout-grid-5">
           <div id="readoutWhite" class="cal-patch-card">
             <div class="cal-patch-header">
               <span class="pin-indicator-dot dot-w"></span>
-              1. White Ref
+              White
             </div>
             <div class="rgb-display-text">--</div>
             <div class="swatch-mini-bar"></div>
@@ -200,7 +200,25 @@
           <div id="readoutGrey" class="cal-patch-card">
             <div class="cal-patch-header">
               <span class="pin-indicator-dot dot-g"></span>
-              2. Grey Neutral
+              Grey
+            </div>
+            <div class="rgb-display-text">--</div>
+            <div class="swatch-mini-bar"></div>
+          </div>
+
+          <div id="readoutRed" class="cal-patch-card">
+            <div class="cal-patch-header">
+              <span class="pin-indicator-dot dot-r"></span>
+              Red
+            </div>
+            <div class="rgb-display-text">--</div>
+            <div class="swatch-mini-bar"></div>
+          </div>
+
+          <div id="readoutRefStrip" class="cal-patch-card">
+            <div class="cal-patch-header">
+              <span class="pin-indicator-dot dot-ref"></span>
+              Ref Strip
             </div>
             <div class="rgb-display-text">--</div>
             <div class="swatch-mini-bar"></div>
@@ -209,15 +227,15 @@
           <div id="readoutStrip" class="cal-patch-card">
             <div class="cal-patch-header">
               <span class="pin-indicator-dot dot-s"></span>
-              3. H2S Reactive
+              Exposed
             </div>
             <div class="rgb-display-text">--</div>
             <div class="swatch-mini-bar"></div>
           </div>
         </div>
 
-        <div style="text-align: center; font-size: 0.8rem; color: var(--text-secondary); font-weight: 700;" id="stepInstruction">
-          ✓ Fixed-geometry patches sampled. Confirm alignment before computing dose.
+        <div style="text-align: center; font-size: 0.78rem; color: var(--text-secondary); font-weight: 700;" id="stepInstruction">
+          ✓ All 5 card zones sampled (Top: White, Grey, Red, Ref Strip • Bottom: Exposed Strip).
         </div>
 
         <div class="form-grid" style="margin-top: auto;">
@@ -283,7 +301,7 @@
       <!-- Colorimetric Chromaticity Comparison -->
       <div class="color-verification-grid">
         <div class="color-box-item">
-          <span style="font-size: 0.7rem; font-weight: 800; color: var(--text-secondary); text-transform: uppercase;">Raw Captured RGB</span>
+          <span style="font-size: 0.7rem; font-weight: 800; color: var(--text-secondary); text-transform: uppercase;">Raw Exposed Strip RGB</span>
           <div id="rawSwatch" class="color-swatch-box"></div>
           <span id="rawRgbText" class="rgb-display-text" style="font-size: 0.75rem;">RGB(0, 0, 0)</span>
         </div>
@@ -489,7 +507,7 @@
 
   <script src="qrcode.min.js"></script>
   <script src="jsqr.js"></script>
-  <script src="calibration.js?v=10.0"></script>
-  <script src="script.js?v=10.0"></script>
+  <script src="calibration.js?v=11.0"></script>
+  <script src="script.js?v=11.0"></script>
 </body>
 </html>

@@ -44,6 +44,7 @@
 
   --color-cyan: #06B6D4;
   --color-purple: #A855F7;
+  --color-rose: #F43F5E;
 
   /* Typography */
   --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -556,7 +557,7 @@ input[type="date"]:focus {
 }
 
 /* ==========================================================================
-   Screen 2: Alignment Overlay Camera & Review Workstation
+   Screen 2: Alignment Overlay Camera & 5-Zone Review Workstation
    ========================================================================== */
 .camera-alignment-container {
   position: relative;
@@ -629,60 +630,64 @@ input[type="date"]:focus {
   display: block;
 }
 
-.calibration-readout-grid {
+/* 5-Zone Readout Cards Grid */
+.calibration-readout-grid-5 {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
+  gap: 8px;
+}
+
+@media (min-width: 500px) {
+  .calibration-readout-grid-5 {
+    grid-template-columns: repeat(5, 1fr);
+  }
 }
 
 .cal-patch-card {
   background: #FFFFFF;
   border: 1.5px solid var(--border-subtle);
   border-radius: var(--radius-sm);
-  padding: 10px;
+  padding: 8px 6px;
   text-align: center;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
   transition: all 0.2s ease;
 }
 
-.cal-patch-card.active-target {
-  border-color: var(--color-blue);
-  background: var(--color-blue-light);
-}
-
 .cal-patch-header {
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 800;
   text-transform: uppercase;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
+  gap: 4px;
   color: var(--text-secondary);
 }
 
 .pin-indicator-dot {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
 }
 .dot-w { background-color: var(--color-cyan); }
 .dot-g { background-color: var(--color-purple); }
+.dot-r { background-color: var(--color-rose); }
+.dot-ref { background-color: var(--color-emerald); }
 .dot-s { background-color: var(--color-amber); }
 
 .rgb-display-text {
   font-family: var(--font-mono);
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 700;
   color: var(--text-primary);
 }
 
 .swatch-mini-bar {
   width: 100%;
-  height: 8px;
-  border-radius: 4px;
+  height: 6px;
+  border-radius: 3px;
   border: 1px solid var(--border-subtle);
   background: #E2E8F0;
 }

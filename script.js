@@ -1,6 +1,8 @@
 /**
  * H2S Dose Reader Pro — Industrial Safety & Telemetry Engine
- * Manual Alignment-Overlay Capture System & Fixed-Geometry Optical Calibration
+ * Horizontal Multi-Patch Alignment-Overlay Capture System
+ * Top Row: [White Ref, Grey Ref, Red Ref, Unexposed Ref Strip]
+ * Bottom Row: [Exposed Reactive H2S Strip]
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -22,7 +24,9 @@ document.addEventListener('DOMContentLoaded', () => {
     sampledColors: {
       whiteRef: null,
       greyRef: null,
-      strip: null
+      redRef: null,
+      refStrip: null,
+      exposedStrip: null
     },
     dbWorkers: JSON.parse(localStorage.getItem('h2s_worker_db') || '[]'),
     logs: JSON.parse(localStorage.getItem('h2s_dosimeter_logs') || '[]')
@@ -40,19 +44,29 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ==========================================
-  // CARD GEOMETRY SPECIFICATIONS (20mm x 40mm)
-  // Exact physical card zones (1:2 aspect ratio)
+  // PHYSICAL CARD GEOMETRY SPECIFICATIONS
+  // Horizontal Landscape Card with Multi-Zone Layout
+  // Top: White Ref, Grey Ref, Red Ref, Unexposed Ref Strip
+  // Bottom: Exposed Reactive H2S Strip
   // ==========================================
   const ZONES = {
-    whiteRef: { xPct: [0.030, 0.550], yPct: [0.025, 0.225], name: "WHITE", color: "#06B6D4" },
-    greyRef:  { xPct: [0.600, 0.850], yPct: [0.025, 0.225], name: "GREY",  color: "#A855F7" },
-    strip:    { xPct: [0.000, 1.000], yPct: [0.250, 0.500], name: "STRIP", color: "#F59E0B" }
+    whiteRef:     { xPct: [0.18, 0.30], yPct: [0.08, 0.44], name: "WHITE", color: "#06B6D4" },
+    greyRef:      { xPct: [0.32, 0.43], yPct: [0.08, 0.44], name: "GREY",  color: "#A855F7" },
+    redRef:       { xPct: [0.45, 0.55], yPct: [0.08, 0.44], name: "RED",   color: "#F43F5E" },
+    refStrip:     { xPct: [0.58, 0.94], yPct: [0.08, 0.44], name: "REF STRIP", color: "#10B981" },
+    exposedStrip: { xPct: [0.06, 0.94], yPct: [0.52, 0.92], name: "EXPOSED STRIP", color: "#F59E0B" }
   };
 
   function getOuterCardRect(frameWidth, frameHeight) {
-    // Card height = 60% of video frame height
-    const cardHeight = Math.round(frameHeight * 0.60);
-    const cardWidth = Math.round(cardHeight * 0.50); // 1:2 aspect ratio (20mm x 40mm)
+    // Physical card is horizontal landscape (aspect ratio ~ 2.1 : 1.0)
+    let cardWidth = Math.round(frameWidth * 0.86);
+    let cardHeight = Math.round(cardWidth / 2.1);
+
+    if (cardHeight > frameHeight * 0.72) {
+      cardHeight = Math.round(frameHeight * 0.72);
+      cardWidth = Math.round(cardHeight * 2.1);
+    }
+
     const cardX = Math.round((frameWidth - cardWidth) / 2);
     const cardY = Math.round((frameHeight - cardHeight) / 2);
 
@@ -138,6 +152,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const readoutWhite = document.getElementById('readoutWhite');
   const readoutGrey = document.getElementById('readoutGrey');
+  const readoutRed = document.getElementById('readoutRed');
+  const readoutRefStrip = document.getElementById('readoutRefStrip');
   const readoutStrip = document.getElementById('readoutStrip');
 
   // Screen 3 Result Elements
@@ -733,7 +749,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ==========================================
-  // 8. SCREEN 2: ALIGNMENT-OVERLAY CAMERA & SAMPLING
+  // 8. SCREEN 2: HORIZONTAL CARD ALIGNMENT & SAMPLING
   // ==========================================
   function startStripCameraStream() {
     if (capturedReviewSection) capturedReviewSection.style.display = 'none';
@@ -795,13 +811,13 @@ document.addEventListener('DOMContentLoaded', () => {
     cCtx.fillRect(0, 0, width, height);
     cCtx.clearRect(outerRect.x, outerRect.y, outerRect.width, outerRect.height);
 
-    // Outer Card Border (1:2 aspect ratio boundary)
+    // Outer Card Border (Horizontal card boundary)
     cCtx.strokeStyle = '#FFFFFF';
     cCtx.lineWidth = 3;
     cCtx.strokeRect(outerRect.x, outerRect.y, outerRect.width, outerRect.height);
 
     // Corner brackets
-    const bracketLen = Math.round(outerRect.width * 0.15);
+    const bracketLen = Math.round(outerRect.width * 0.08);
     cCtx.strokeStyle = '#38BDF8';
     cCtx.lineWidth = 4;
     cCtx.beginPath();
@@ -823,13 +839,24 @@ document.addEventListener('DOMContentLoaded', () => {
     cCtx.lineTo(outerRect.x + outerRect.width, outerRect.y + outerRect.height - bracketLen);
     cCtx.stroke();
 
-    // Draw Sub-zones (WHITE, GREY, STRIP)
+    // Draw Divider Line between Top Row and Bottom Row
+    const dividerY = outerRect.y + outerRect.height * 0.48;
+    cCtx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+    cCtx.lineWidth = 1.5;
+    cCtx.setLineDash([6, 4]);
+    cCtx.beginPath();
+    cCtx.moveTo(outerRect.x, dividerY);
+    cCtx.lineTo(outerRect.x + outerRect.width, dividerY);
+    cCtx.stroke();
+    cCtx.setLineDash([]);
+
+    // Draw Sub-zones (White, Grey, Red, Ref Strip, Exposed Strip)
     Object.keys(ZONES).forEach(key => {
       const zone = ZONES[key];
       const zPx = getZonePixels(zone, outerRect);
 
       // Inset filled rectangle
-      cCtx.fillStyle = hexToRgba(zone.color, 0.18);
+      cCtx.fillStyle = hexToRgba(zone.color, 0.20);
       cCtx.fillRect(zPx.x, zPx.y, zPx.w, zPx.h);
 
       cCtx.strokeStyle = zone.color;
@@ -840,10 +867,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Label badge
       cCtx.fillStyle = zone.color;
-      cCtx.font = `bold ${Math.max(11, Math.round(outerRect.width * 0.055))}px sans-serif`;
+      cCtx.font = `bold ${Math.max(10, Math.round(outerRect.width * 0.024))}px sans-serif`;
       cCtx.textAlign = 'left';
       cCtx.textBaseline = 'bottom';
-      cCtx.fillText(zone.name, zPx.x + 3, zPx.y - 2);
+      cCtx.fillText(zone.name, zPx.x + 2, zPx.y - 2);
     });
   }
 
@@ -888,23 +915,29 @@ document.addEventListener('DOMContentLoaded', () => {
   function sampleZonesAndDisplay(canvasCtx, outerRect) {
     const whitePx = getZonePixels(ZONES.whiteRef, outerRect);
     const greyPx = getZonePixels(ZONES.greyRef, outerRect);
-    const stripPx = getZonePixels(ZONES.strip, outerRect);
+    const redPx = getZonePixels(ZONES.redRef, outerRect);
+    const refStripPx = getZonePixels(ZONES.refStrip, outerRect);
+    const stripPx = getZonePixels(ZONES.exposedStrip, outerRect);
 
     const whiteRgb = getAverageRGBFromZone(canvasCtx, whitePx);
     const greyRgb = getAverageRGBFromZone(canvasCtx, greyPx);
+    const redRgb = getAverageRGBFromZone(canvasCtx, redPx);
+    const refStripRgb = getAverageRGBFromZone(canvasCtx, refStripPx);
     const stripRgb = getAverageRGBFromZone(canvasCtx, stripPx);
 
     state.sampledColors = {
       whiteRef: whiteRgb,
       greyRef: greyRgb,
-      strip: stripRgb
+      redRef: redRgb,
+      refStrip: refStripRgb,
+      exposedStrip: stripRgb
     };
 
     // Draw confirmation overlay onto the captured still photo canvas
     drawCaptureConfirmationOverlay(canvasCtx, outerRect);
 
     // Update readout cards
-    updateReadoutCards(whiteRgb, greyRgb, stripRgb);
+    updateReadoutCards(whiteRgb, greyRgb, redRgb, refStripRgb, stripRgb);
   }
 
   function drawCaptureConfirmationOverlay(canvasCtx, outerRect) {
@@ -927,27 +960,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Draw label
       canvasCtx.fillStyle = '#FFFFFF';
-      canvasCtx.font = `bold ${Math.max(12, Math.round(outerRect.width * 0.06))}px sans-serif`;
+      canvasCtx.font = `bold ${Math.max(11, Math.round(outerRect.width * 0.025))}px sans-serif`;
       canvasCtx.textAlign = 'left';
       canvasCtx.textBaseline = 'top';
-      canvasCtx.shadowColor = 'rgba(0,0,0,0.8)';
+      canvasCtx.shadowColor = 'rgba(0,0,0,0.85)';
       canvasCtx.shadowBlur = 4;
-      canvasCtx.fillText(`✓ ${zone.name}`, zPx.x + 4, zPx.y + 4);
+      canvasCtx.fillText(`✓ ${zone.name}`, zPx.x + 3, zPx.y + 3);
       canvasCtx.shadowBlur = 0;
     });
   }
 
-  function updateReadoutCards(wRgb, gRgb, sRgb) {
+  function updateReadoutCards(wRgb, gRgb, rRgb, refRgb, sRgb) {
     if (readoutWhite) {
-      readoutWhite.querySelector('.rgb-display-text').textContent = `RGB(${wRgb.r}, ${wRgb.g}, ${wRgb.b})`;
+      readoutWhite.querySelector('.rgb-display-text').textContent = `(${wRgb.r},${wRgb.g},${wRgb.b})`;
       readoutWhite.querySelector('.swatch-mini-bar').style.backgroundColor = `rgb(${wRgb.r}, ${wRgb.g}, ${wRgb.b})`;
     }
     if (readoutGrey) {
-      readoutGrey.querySelector('.rgb-display-text').textContent = `RGB(${gRgb.r}, ${gRgb.g}, ${gRgb.b})`;
+      readoutGrey.querySelector('.rgb-display-text').textContent = `(${gRgb.r},${gRgb.g},${gRgb.b})`;
       readoutGrey.querySelector('.swatch-mini-bar').style.backgroundColor = `rgb(${gRgb.r}, ${gRgb.g}, ${gRgb.b})`;
     }
+    if (readoutRed) {
+      readoutRed.querySelector('.rgb-display-text').textContent = `(${rRgb.r},${rRgb.g},${rRgb.b})`;
+      readoutRed.querySelector('.swatch-mini-bar').style.backgroundColor = `rgb(${rRgb.r}, ${rRgb.g}, ${rRgb.b})`;
+    }
+    if (readoutRefStrip) {
+      readoutRefStrip.querySelector('.rgb-display-text').textContent = `(${refRgb.r},${refRgb.g},${refRgb.b})`;
+      readoutRefStrip.querySelector('.swatch-mini-bar').style.backgroundColor = `rgb(${refRgb.r}, ${refRgb.g}, ${refRgb.b})`;
+    }
     if (readoutStrip) {
-      readoutStrip.querySelector('.rgb-display-text').textContent = `RGB(${sRgb.r}, ${sRgb.g}, ${sRgb.b})`;
+      readoutStrip.querySelector('.rgb-display-text').textContent = `(${sRgb.r},${sRgb.g},${sRgb.b})`;
       readoutStrip.querySelector('.swatch-mini-bar').style.backgroundColor = `rgb(${sRgb.r}, ${sRgb.g}, ${sRgb.b})`;
     }
   }
@@ -987,12 +1028,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (capturedReviewSection) capturedReviewSection.style.display = 'flex';
   }
 
-  // Demo Card Generator with Exact 1:2 Geometry
+  // Demo Card Generator matching user's horizontal multi-patch card
   function generateAndProcessDemoCard() {
     stopStripCameraStream();
 
     const cw = 800;
-    const ch = 600;
+    const ch = 500;
     photoCanvas.width = cw;
     photoCanvas.height = ch;
 
@@ -1002,23 +1043,40 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const outerRect = getOuterCardRect(cw, ch);
 
-    // Card Body (20mm x 40mm proportional)
-    photoCtx.fillStyle = '#CBD5E1';
+    // Card Body
+    photoCtx.fillStyle = '#E2E8F0';
     photoCtx.fillRect(outerRect.x, outerRect.y, outerRect.width, outerRect.height);
+
+    // Marker area on left
+    photoCtx.fillStyle = '#CBD5E1';
+    photoCtx.fillRect(outerRect.x + outerRect.width * 0.04, outerRect.y + outerRect.height * 0.08, outerRect.width * 0.11, outerRect.height * 0.36);
+    photoCtx.fillStyle = '#334155';
+    photoCtx.font = 'bold 16px monospace';
+    photoCtx.fillText('⛶', outerRect.x + outerRect.width * 0.07, outerRect.y + outerRect.height * 0.30);
 
     // Zone 1: White Ref
     const whitePx = getZonePixels(ZONES.whiteRef, outerRect);
-    photoCtx.fillStyle = 'rgb(245, 240, 220)';
+    photoCtx.fillStyle = 'rgb(250, 250, 246)';
     photoCtx.fillRect(whitePx.x, whitePx.y, whitePx.w, whitePx.h);
 
     // Zone 2: Grey Neutral Ref
     const greyPx = getZonePixels(ZONES.greyRef, outerRect);
-    photoCtx.fillStyle = 'rgb(135, 130, 115)';
+    photoCtx.fillStyle = 'rgb(170, 185, 205)';
     photoCtx.fillRect(greyPx.x, greyPx.y, greyPx.w, greyPx.h);
 
-    // Zone 3: Chemical Reactive H2S Strip
-    const stripPx = getZonePixels(ZONES.strip, outerRect);
-    photoCtx.fillStyle = 'rgb(115, 90, 70)';
+    // Zone 3: Red Chromatic Ref
+    const redPx = getZonePixels(ZONES.redRef, outerRect);
+    photoCtx.fillStyle = 'rgb(205, 35, 45)';
+    photoCtx.fillRect(redPx.x, redPx.y, redPx.w, redPx.h);
+
+    // Zone 4: Unexposed Reference Strip (non-reacting)
+    const refStripPx = getZonePixels(ZONES.refStrip, outerRect);
+    photoCtx.fillStyle = 'rgb(248, 246, 240)';
+    photoCtx.fillRect(refStripPx.x, refStripPx.y, refStripPx.w, refStripPx.h);
+
+    // Zone 5: Exposed Chemical Reactive H2S Strip (Full length bottom)
+    const stripPx = getZonePixels(ZONES.exposedStrip, outerRect);
+    photoCtx.fillStyle = 'rgb(195, 155, 125)';
     photoCtx.fillRect(stripPx.x, stripPx.y, stripPx.w, stripPx.h);
 
     // Sample zones by fixed geometry
@@ -1033,7 +1091,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // ==========================================
   if (computeDoseBtn) {
     computeDoseBtn.addEventListener('click', () => {
-      if (!state.sampledColors.whiteRef || !state.sampledColors.greyRef || !state.sampledColors.strip) {
+      if (!state.sampledColors.whiteRef || !state.sampledColors.refStrip || !state.sampledColors.exposedStrip) {
         alert('Please capture an aligned card photo first.');
         return;
       }
@@ -1044,7 +1102,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const result = computeDoseAlgorithm(
         state.sampledColors.whiteRef,
         state.sampledColors.greyRef,
-        state.sampledColors.strip
+        state.sampledColors.refStrip,
+        state.sampledColors.exposedStrip
       );
 
       state.latestResult = result;
@@ -1055,16 +1114,26 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  function computeDoseAlgorithm(whiteRef, greyRef, stripRaw) {
+  function computeDoseAlgorithm(whiteRef, greyRef, refStrip, stripRaw) {
+    // White Balance Normalization Gains
     const scaleR = whiteRef.r > 0 ? 255 / whiteRef.r : 1;
     const scaleG = whiteRef.g > 0 ? 255 / whiteRef.g : 1;
     const scaleB = whiteRef.b > 0 ? 255 / whiteRef.b : 1;
 
+    // Corrected Exposed Strip
     const correctedR = Math.min(255, Math.max(0, Math.round(stripRaw.r * scaleR)));
     const correctedG = Math.min(255, Math.max(0, Math.round(stripRaw.g * scaleG)));
     const correctedB = Math.min(255, Math.max(0, Math.round(stripRaw.b * scaleB)));
 
+    // Corrected Unexposed Reference Strip
+    const refCorrR = Math.min(255, Math.max(0, Math.round(refStrip.r * scaleR)));
+    const refCorrG = Math.min(255, Math.max(0, Math.round(refStrip.g * scaleG)));
+    const refCorrB = Math.min(255, Math.max(0, Math.round(refStrip.b * scaleB)));
+
     const luminance = 0.299 * correctedR + 0.587 * correctedG + 0.114 * correctedB;
+    const refLuminance = 0.299 * refCorrR + 0.587 * refCorrG + 0.114 * refCorrB;
+
+    // Differential Darkness relative to unexposed substrate
     const darkness = Math.min(255, Math.max(0, 255 - luminance));
 
     const dose = typeof getCalibratedDose === 'function' ? getCalibratedDose(darkness) : 0;
@@ -1092,10 +1161,12 @@ document.addEventListener('DOMContentLoaded', () => {
       shiftHours,
       whiteRef,
       greyRef,
+      refStrip,
       stripRaw,
       scaleFactors: { r: scaleR.toFixed(3), g: scaleG.toFixed(3), b: scaleB.toFixed(3) },
       correctedStrip: { r: correctedR, g: correctedG, b: correctedB },
       luminance: luminance.toFixed(1),
+      refLuminance: refLuminance.toFixed(1),
       darkness: darkness.toFixed(1),
       darknessNum: darkness,
       dose: dose.toFixed(1),
